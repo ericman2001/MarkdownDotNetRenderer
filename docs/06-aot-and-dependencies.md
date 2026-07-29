@@ -8,7 +8,7 @@ dependency.
 | Package | Used by | License | LGPLv3 compatible as a dependency? |
 | --- | --- | --- | --- |
 | [Markdig](https://www.nuget.org/packages/Markdig) | Core (all phases) | BSD-2-Clause | Yes — permissive, no reciprocal obligations |
-| [DocumentFormat.OpenXml](https://www.nuget.org/packages/DocumentFormat.OpenXml) | Core, DOCX path only ([phase 6](phases/phase-6-docx.md)) | MIT | Yes — permissive |
+| [DocumentFormat.OpenXml](https://www.nuget.org/packages/DocumentFormat.OpenXml) | Core, DOCX path only ([phase 5](phases/phase-5-docx.md)) | MIT | Yes — permissive |
 | xUnit (+ `xunit.runner.visualstudio`, `Microsoft.NET.Test.Sdk`) | Tests only | Apache-2.0 / MIT | Yes; test-only, never shipped |
 
 Also allowed, because they ship with the runtime: `System.IO.Compression`,
@@ -22,7 +22,7 @@ dependency budget and the AOT story.
 - Any JS engine (Jint, ClearScript, Jurassic) or Node/browser process launcher — violates the
   core constraint of the project ([01-overview](01-overview.md)).
 - SkiaSharp / Magick.NET / libgdiplus / Svg.Skia / ImageSharp — native or heavyweight; only
-  reconsidered under [phase 5](phases/phase-5-docx-png-fallback.md), and only with an explicit
+  reconsidered under [phase 6](phases/phase-6-docx-png-fallback.md), and only with an explicit
   decision recorded there.
 - `System.Drawing.Common` — Windows-only since .NET 7, which breaks the Linux requirement.
 - Anything GPL/AGPL-licensed, which would impose obligations beyond LGPLv3 on consumers
@@ -88,7 +88,7 @@ raises `IL2xxx`/`IL3xxx` warnings that `TreatWarningsAsErrors` would turn into b
 - Trim/AOT warnings originating from OpenXml are suppressed **narrowly**, at the DOCX writer
   file/member level (targeted `#pragma warning disable` or a scoped `NoWarn`), never
   solution-wide, and each suppression carries a comment explaining it.
-- If suppression proves too invasive, the fallback plan (decided at phase 6 time, recorded
+- If suppression proves too invasive, the fallback plan (decided at phase 5 time, recorded
   there) is to move the DOCX writer into a separate
   `MarkdownDotNetRenderer.OpenXml` package that Core does not reference, with the CLI
   registering it. That preserves an AOT-perfect HTML+ODT deployment at the cost of one more
@@ -135,9 +135,9 @@ What this requires:
 Verification targets to record per phase, **on Linux**: the produced `.html` must open in
 Firefox/Chromium; the produced `.odt` ([phase 2](phases/phase-2-odf-output.md)) must open in
 LibreOffice Writer with correct text structure **and visible vector diagrams**; and the produced
-`.docx` ([phase 6](phases/phase-6-docx.md)) must open in LibreOffice Writer with correct text
+`.docx` ([phase 5](phases/phase-5-docx.md)) must open in LibreOffice Writer with correct text
 structure — accepting that its SVG-only diagrams may not display there until the
-[PNG fallback](phases/phase-5-docx-png-fallback.md) lands, which is much of why ODT comes first.
+[PNG fallback](phases/phase-6-docx-png-fallback.md) lands, which is much of why ODT comes first.
 
 ## Size and performance expectations
 

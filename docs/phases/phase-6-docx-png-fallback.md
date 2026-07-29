@@ -1,16 +1,16 @@
-# Phase 5 — DOCX PNG Raster Fallback (Deferred / Optional)
+# Phase 6 — DOCX PNG Raster Fallback (Deferred / Optional)
 
 > **Status: FUTURE / OPTIONAL — deferred by design.** No other phase may depend on this one, and
 > no rasterizer dependency may be added before the decision below is explicitly made and
-> recorded. This document exists so the tradeoff is understood, not to schedule work. Note that
-> the phase numbering is not a sequence here: this is the last thing to consider, and
-> [phase 2](phase-2-odf-output.md) may remove the need for it entirely.
+> recorded. This document exists so the tradeoff is understood, not to schedule work. It is last
+> in the sequence on purpose: it extends the DOCX writer from [phase 5](phase-5-docx.md), so it
+> cannot precede it, and [phase 2](phase-2-odf-output.md) may remove the need for it entirely.
 
 **Goal (if undertaken):** make diagrams visible in **every** consumer of the generated `.docx`,
 including Word 2013 and earlier, WordPad, Google Docs, and LibreOffice Writer, by embedding a PNG
 raster image alongside the SVG.
 
-**Prerequisites:** [phase 6](phase-6-docx.md) (the DOCX writer this phase extends).
+**Prerequisites:** [phase 5](phase-5-docx.md) (the DOCX writer this phase extends).
 
 **Reading:** [05-output-writers](../05-output-writers.md) (the blip structure that this phase
 completes), [06-aot-and-dependencies](../06-aot-and-dependencies.md) (the dependency budget this
@@ -65,7 +65,7 @@ Prefer these before accepting a rasterizer. They may make this phase unnecessary
    Core does not reference, so consumers who don't want native assets never acquire them.
 4. **`RenderOptions` additions**: `RasterFallback` (`None` | `WhenAvailable` | `Required`) and
    `RasterScale` (default 2× for high-DPI printing).
-5. **DOCX writer change** — the reason task 6 of [phase 6](phase-6-docx.md) was factored for it:
+5. **DOCX writer change** — the reason task 6 of [phase 5](phase-5-docx.md) was factored for it:
    add a second
    `ImagePart` (`image/png`), point `a:blip/@r:embed` at the **PNG** and leave
    `asvg:svgBlip/@r:embed` pointing at the SVG. This is the shape Microsoft actually intends:

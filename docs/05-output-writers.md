@@ -7,12 +7,12 @@ format-agnostic `DocumentContent` (prose blocks, diagram blocks, fallback code b
 | --- | --- | --- | --- | --- |
 | `HtmlDocumentWriter` | Self-contained HTML5 | `.html` | Markdig only | [1](phases/phase-1-html-flowchart.md) |
 | `OdtDocumentWriter` | OpenDocument Text (LibreOffice/OpenOffice; also opens in Word 2010+) | `.odt` | none (hand-written XML + zip) | [2](phases/phase-2-odf-output.md) |
-| `DocxDocumentWriter` | OOXML WordprocessingML | `.docx` | DocumentFormat.OpenXml | [6](phases/phase-6-docx.md) |
+| `DocxDocumentWriter` | OOXML WordprocessingML | `.docx` | DocumentFormat.OpenXml | [5](phases/phase-5-docx.md) |
 
 ODT is implemented before DOCX because it needs no dependency and is AOT-clean; DOCX follows
 because Word renders a natively-written `.docx` exactly as authored, where it treats `.odt` as a
 convert-on-import path. See [phase 2](phases/phase-2-odf-output.md) and
-[phase 6](phases/phase-6-docx.md).
+[phase 5](phases/phase-5-docx.md).
 
 ## HtmlDocumentWriter
 
@@ -152,7 +152,7 @@ Adding a PNG next to the SVG (a second `ImagePart` referenced by `a:blip/@r:embe
 diagrams display in every Word version and in LibreOffice. It requires an SVG rasterizer,
 every candidate of which drags in native or reflection-heavy dependencies that conflict with
 the AOT goal. **Explicitly deferred** to
-[phase 5](phases/phase-5-docx-png-fallback.md); nothing in the DOCX writer may assume a
+[phase 6](phases/phase-6-docx-png-fallback.md); nothing in the DOCX writer may assume a
 rasterizer exists, and the drawing-construction code should be factored so a second blip
 relationship can be slotted in later without restructuring.
 

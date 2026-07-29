@@ -5,7 +5,7 @@ phase is a **roadmap**: each sub-phase below is independently shippable and can 
 separate agent.
 
 **Prerequisites:** [phase 1](phase-1-html-flowchart.md) for the engine and layered layout;
-[phase 2](phase-2-odf-output.md) (and [phase 6](phase-6-docx.md), once it lands) if office-format
+[phase 2](phase-2-odf-output.md) (and [phase 5](phase-5-docx.md), once it lands) if office-format
 verification is in the sub-phase's acceptance criteria;
 [phase 3](phase-3-sequence-diagrams.md) as the worked example of "add a renderer, change nothing
 else".
@@ -110,7 +110,7 @@ layout.
 ## Acceptance criteria (apply per sub-phase)
 
 - [ ] The type's fixtures render as readable SVG in **HTML** and in every office format that has
-      shipped (ODT from phase 2; DOCX once phase 6 lands) — with no changes to `MarkdownRenderer`
+      shipped (ODT from phase 2; DOCX once phase 5 lands) — with no changes to `MarkdownRenderer`
       or to any writer.
 - [ ] Every parsed element appears in the output (all labels present, all edges/slices/bars
       accounted for) and nothing overlaps illegibly.

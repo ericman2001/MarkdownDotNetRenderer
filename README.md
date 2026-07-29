@@ -51,8 +51,8 @@ package, so it works on a headless Linux build agent.
 | --- | --- | --- |
 | Self-contained HTML | Inline `<svg>` | [Phase 1](docs/phases/phase-1-html-flowchart.md) |
 | ODT (LibreOffice / OpenOffice; also opens in Word 2010+) | Native SVG, no new dependency | [Phase 2](docs/phases/phase-2-odf-output.md) |
-| DOCX (Word) | Embedded **SVG only** (Word 2016+/365) | [Phase 6](docs/phases/phase-6-docx.md) |
-| DOCX with PNG fallback | Raster for older Word | [Phase 5](docs/phases/phase-5-docx-png-fallback.md) — deferred/optional |
+| DOCX (Word) | Embedded **SVG only** (Word 2016+/365) | [Phase 5](docs/phases/phase-5-docx.md) |
+| DOCX with PNG fallback | Raster for older Word | [Phase 6](docs/phases/phase-6-docx-png-fallback.md) — deferred/optional |
 
 ODT comes before DOCX deliberately: it needs no new dependency, is fully AOT-clean, and carries
 SVG natively, so it delivers a shareable office document sooner and with less risk. DOCX follows
@@ -108,8 +108,8 @@ acceptance criteria — so it can be handed off and executed independently.
 | 2 | [ODF (ODT) output](docs/phases/phase-2-odf-output.md) | `OdtDocumentWriter`: LibreOffice/OpenOffice output with native SVG and no new dependency |
 | 3 | [Sequence diagrams](docs/phases/phase-3-sequence-diagrams.md) | `sequenceDiagram` support with a deterministic, solver-free layout |
 | 4 | [Additional diagrams](docs/phases/phase-4-additional-diagrams.md) | Prioritized roadmap: `pie`, `stateDiagram`, `classDiagram`, `erDiagram`, `gantt`, … |
-| 5 | [DOCX PNG fallback](docs/phases/phase-5-docx-png-fallback.md) | **Deferred/optional**: rasterization for older Word, and the dependency/AOT tradeoff |
-| 6 | [DOCX](docs/phases/phase-6-docx.md) | `DocxDocumentWriter` with SVG-only diagram embedding |
+| 5 | [DOCX](docs/phases/phase-5-docx.md) | `DocxDocumentWriter` with SVG-only diagram embedding |
+| 6 | [DOCX PNG fallback](docs/phases/phase-6-docx-png-fallback.md) | **Deferred/optional**: rasterization for older Word, and the dependency/AOT tradeoff |
 
 ## Dependencies
 

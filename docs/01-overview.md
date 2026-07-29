@@ -25,7 +25,7 @@ MarkdownDotNetRenderer is a pure-C# renderer that turns GitHub-Flavored Markdown
 7. **An open-format office output first.** OpenDocument Text (`.odt`) is the first office format
    ([phase 2](phases/phase-2-odf-output.md)): it adds no dependency, is AOT-clean, carries SVG
    natively, and opens in LibreOffice/OpenOffice *and* in Word 2010+. DOCX follows
-   ([phase 6](phases/phase-6-docx.md)) because Word renders a natively-written `.docx` exactly as
+   ([phase 5](phases/phase-5-docx.md)) because Word renders a natively-written `.docx` exactly as
    authored, while it treats `.odt` as a convert-on-import path.
 
 ## The "pure C# / no JS" philosophy
@@ -63,7 +63,7 @@ edge label, and a sane non-overlapping layout. It does **not** need to match
   unimplemented degrades gracefully to a preformatted code block (never an exception).
 - PDF output.
 - Raster (PNG) diagram output. DOCX embeds SVG only for now; PNG rasterization is
-  deferred — see [phase 5](phases/phase-5-docx-png-fallback.md).
+  deferred — see [phase 6](phases/phase-6-docx-png-fallback.md).
 - Automating an installed Office suite (Word/LibreOffice COM/UNO) to produce documents. All
   formats are written directly as OOXML/ODF packages, which is what keeps the tool usable on a
   headless Linux build agent.
@@ -88,7 +88,7 @@ edge label, and a sane non-overlapping layout. It does **not** need to match
 | AOT | CLI sets `<PublishAot>true</PublishAot>`; Core sets `<IsAotCompatible>true</IsAotCompatible>` and stays reflection-free |
 | JavaScript | **None.** No Node, no headless browser, no JS engine, no `<script>` in output |
 | Markdown parser | Markdig, GFM/advanced pipeline (`UseAdvancedExtensions`) |
-| Outputs | Self-contained HTML (inline SVG), then ODT ([phase 2](phases/phase-2-odf-output.md)), then DOCX ([phase 6](phases/phase-6-docx.md)) |
+| Outputs | Self-contained HTML (inline SVG), then ODT ([phase 2](phases/phase-2-odf-output.md)), then DOCX ([phase 5](phases/phase-5-docx.md)) |
 | Platforms | Linux, macOS, Windows — all first-class; no Windows-only APIs, no Office automation |
 | DOCX diagrams | **SVG-only** embedding (newer Word). PNG raster fallback **deferred** |
 | Mermaid engine | Pluggable `IDiagramRenderer` per diagram type, dispatched on the first token |

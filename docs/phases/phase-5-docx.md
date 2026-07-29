@@ -1,4 +1,4 @@
-# Phase 6 — DOCX Output
+# Phase 5 — DOCX Output
 
 **Goal:** `--format docx` produces a valid Word document containing the prose (headings,
 paragraphs, lists, tables, code, quotes) and the diagrams embedded as **SVG only**.
@@ -10,7 +10,8 @@ Word-openable document. DOCX remains worth building because Word treats ODF as a
 convert-on-import path with a fidelity warning, while a directly-written `.docx` is rendered
 exactly as authored — and because SVG diagram display through Word's ODF importer is uncertain
 (phase 2 measures it and records the result, which is the main input to how urgent this phase
-really is).
+really is). The PNG raster fallback that makes those diagrams visible in older Word is a further
+step on top of this one, [phase 6](phase-6-docx-png-fallback.md).
 
 **Prerequisites:** [phase 1](phase-1-html-flowchart.md) complete — `DocumentContent`,
 `IDocumentWriter`, and the flowchart renderer already exist and are format-agnostic.
@@ -29,7 +30,7 @@ In scope: the `DocumentFormat.OpenXml` dependency, `DocxDocumentWriter`, style/n
 SVG image embedding, DOCX-specific diagnostics, structural tests, and containment of AOT/trim
 warnings.
 
-Out of scope: PNG raster fallback ([phase 5](phase-5-docx-png-fallback.md)), ODT
+Out of scope: PNG raster fallback ([phase 6](phase-6-docx-png-fallback.md)), ODT
 ([phase 2](phase-2-odf-output.md)), headers/footers, page setup beyond defaults, table of
 contents, cross-references, tracked changes, templates/`.dotx`.
 
@@ -79,7 +80,7 @@ contents, cross-references, tracked changes, templates/`.dotx`.
    `asvg:svgBlip r:embed="…"`. With no raster part, `a:blip/@r:embed` points at the SVG part as
    well. Build the `svgBlip` via `OpenXmlUnknownElement` from an XML string (string
    construction, not reflection). **Factor this so a second (raster) blip relationship can be
-   added in phase 5 without restructuring.**
+   added in [phase 6](phase-6-docx-png-fallback.md) without restructuring.**
 
 7. **Fallback code blocks** (unsupported diagram types) reuse the code-block rendering from task
    5, so the verbatim mermaid source is preserved in the DOCX too.
@@ -105,7 +106,7 @@ contents, cross-references, tracked changes, templates/`.dotx`.
 - [ ] The same file opens in **LibreOffice Writer on Linux** with correct text structure
       (diagram images may not display there — documented and accepted for SVG-only; Linux users
       are better served by the ODT output from [phase 2](phase-2-odf-output.md), and broad
-      raster compatibility is [phase 5](phase-5-docx-png-fallback.md)).
+      raster compatibility is [phase 6](phase-6-docx-png-fallback.md)).
 - [ ] Diagrams display as crisp vector images in Word 2016+/Microsoft 365.
 - [ ] `OpenXmlValidator` reports **zero** validation errors for every fixture.
 - [ ] Structural XML tests pass: heading style ids, table row/cell counts and header row, list

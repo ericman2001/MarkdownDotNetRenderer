@@ -15,7 +15,7 @@ public enum OutputFormat
     /// <summary>OpenDocument Text for LibreOffice/OpenOffice. Added in phase 2.</summary>
     Odt,
 
-    /// <summary>OOXML WordprocessingML for Microsoft Word. Added in phase 6.</summary>
+    /// <summary>OOXML WordprocessingML for Microsoft Word. Added in phase 5.</summary>
     Docx,
 }
 
@@ -184,7 +184,7 @@ Writers write to a caller-supplied `Stream`, which lets `RenderAsync` target a
 `MemoryStream` and `RenderFileAsync` target a `FileStream` without buffering twice. See
 [05-output-writers](05-output-writers.md) for the implementations. Selecting a format whose
 writer has not shipped yet (`Odt` before [phase 2](phases/phase-2-odf-output.md), `Docx` before
-[phase 6](phases/phase-6-docx.md)) throws
+[phase 5](phases/phase-5-docx.md)) throws
 `NotSupportedException` with a message naming the format — an API-misuse error, distinct from the
 content-degradation cases below.
 

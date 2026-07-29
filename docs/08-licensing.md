@@ -82,7 +82,7 @@ obligations for us:
   [06-aot-and-dependencies](06-aot-and-dependencies.md) enforced: **no GPL or AGPL
   dependency may be added**, since that would force the whole work to GPL/AGPL and destroy the
   closed-source-consumer property that motivated LGPLv3. Any candidate rasterizer for
-  [phase 5](phases/phase-5-docx-png-fallback.md) must be license-checked on this basis before
+  [phase 6](phases/phase-6-docx-png-fallback.md) must be license-checked on this basis before
   its technical merits are even considered.
 
 ## Non-code assets

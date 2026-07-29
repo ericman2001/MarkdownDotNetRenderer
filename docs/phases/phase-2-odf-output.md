@@ -4,7 +4,7 @@
 file that opens natively in LibreOffice Writer, Apache OpenOffice, and Collabora — with prose
 and **native SVG diagrams**, and **no new dependency**.
 
-ODT comes before DOCX ([phase 6](phase-6-docx.md)) deliberately: it is the cheaper of the two
+ODT comes before DOCX ([phase 5](phase-5-docx.md)) deliberately: it is the cheaper of the two
 office formats by every measure — no NuGet dependency, no reflection, no trim/AOT suppressions,
 and SVG diagrams that simply work — so it delivers a shareable office document sooner and with
 less risk. It also solves the prose-mapping problem (headings, lists, tables, code, quotes)
@@ -23,7 +23,7 @@ office format), [07-testing-strategy](../07-testing-strategy.md) (area 8).
   suite, and the project treats Linux as a first-class platform.
 - **ODF consumes SVG natively.** LibreOffice renders an SVG referenced from `draw:image`
   directly, so the diagram-visibility problem that motivates
-  [phase 5](phase-5-docx-png-fallback.md) simply does not exist here — no rasterizer, no
+  [phase 6](phase-6-docx-png-fallback.md) simply does not exist here — no rasterizer, no
   compatibility tradeoff.
 - **Zero new dependencies.** An `.odt` is a zip of XML: `System.IO.Compression.ZipArchive` plus
   `System.Xml.XmlWriter`, both in the BCL and both AOT-clean. Unlike the DOCX path, the ODT path
@@ -36,7 +36,7 @@ office format), [07-testing-strategy](../07-testing-strategy.md) (area 8).
   import/convert path (with a fidelity warning), and whether Word's ODF importer renders an SVG
   referenced from `draw:image` is unverified — see the acceptance criteria below, which record it
   as an explicit empirical check rather than an assumption. That uncertainty is precisely why
-  [phase 6](phase-6-docx.md) still exists.
+  [phase 5](phase-5-docx.md) still exists.
 
 ## Package structure to produce
 
@@ -99,9 +99,9 @@ All XML is written with `XmlWriter` using explicit namespace prefixes (`office`,
    any suppressions.
 9. **Docs**: mark ODT as supported in [05-output-writers](../05-output-writers.md), the README
    support table, and [01-overview](../01-overview.md)'s decision table; note in
-   [phase 5](phase-5-docx-png-fallback.md) that ODT closes much of the compatibility gap that
+   [phase 6](phase-6-docx-png-fallback.md) that ODT closes much of the compatibility gap that
    phase motivated. Record the observed behaviour of **Word's** ODF import (especially SVG
-   diagram display) here, since it informs how much [phase 6](phase-6-docx.md) is still needed.
+   diagram display) here, since it informs how much [phase 5](phase-5-docx.md) is still needed.
 
 ## Acceptance criteria
 
@@ -113,7 +113,7 @@ All XML is written with `XmlWriter` using explicit namespace prefixes (`office`,
       version — record the observed behaviour).
 - [ ] **Measured, not assumed:** open the same `.odt` in a recent Microsoft Word and record what
       happens to the prose *and* to the SVG diagrams (rendered / rasterized / missing). Write the
-      result into this document — it is the main input to how [phase 6](phase-6-docx.md) is
+      result into this document — it is the main input to how [phase 5](phase-5-docx.md) is
       prioritized.
 - [ ] `mimetype` is the first zip entry, stored uncompressed, with exactly
       `application/vnd.oasis.opendocument.text`.

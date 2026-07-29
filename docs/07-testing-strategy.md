@@ -125,7 +125,7 @@ row; emphasis maps to `text:span` with the expected automatic style properties; 
 fragment; fallback code blocks preserve the verbatim mermaid source; and two renders of the same
 input are byte-identical.
 
-### 9. `DocxDocumentWriter` (phase 6)
+### 9. `DocxDocumentWriter` (phase 5)
 
 - The package opens with `WordprocessingDocument.Open` without validation errors, and
   `OpenXmlValidator` (2019 target) reports zero errors for the kitchen-sink sample.
@@ -145,7 +145,7 @@ input are byte-identical.
 - `IMarkdownRenderer.RenderAsync` for every shipped format on the kitchen-sink sample: non-empty
   output, expected magic bytes (`<!DOCTYPE` / `PK\x03\x04`), and only the expected diagnostics.
 - Selecting a format whose writer has not shipped yet throws `NotSupportedException` naming the
-  format — asserted, so the pre-phase-2/6 behaviour is defined rather than accidental.
+  format — asserted, so the pre-phase-2/5 behaviour is defined rather than accidental.
 - `RenderFileAsync` writes the file, creates missing directories or fails cleanly, and returns
   the same bytes as `RenderAsync`.
 - Cancellation: a pre-cancelled token yields `OperationCanceledException`.

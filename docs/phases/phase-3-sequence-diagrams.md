@@ -93,7 +93,7 @@ construction — no iteration, no heuristics.
       overlaps illegibly.
 - [ ] The same sample renders in **ODT** with the diagram visible in LibreOffice Writer — with
       **no changes to `OdtDocumentWriter`**, proving the writer/diagram separation holds. Once
-      [phase 6](phase-6-docx.md) lands, the same must hold for `DocxDocumentWriter` in Word 2016+.
+      [phase 5](phase-5-docx.md) lands, the same must hold for `DocxDocumentWriter` in Word 2016+.
 - [ ] All four arrow styles (`->>`, `-->>`, `->`, `-x`) are visually distinguishable, and
       self-messages and notes render correctly.
 - [ ] `loop`/`alt`/`opt`/`activate` constructs do not break the render: the contained messages
