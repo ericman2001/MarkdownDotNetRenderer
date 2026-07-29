@@ -1,10 +1,22 @@
-# Phase 2 — DOCX Output
+# Phase 6 — DOCX Output
 
 **Goal:** `--format docx` produces a valid Word document containing the prose (headings,
 paragraphs, lists, tables, code, quotes) and the diagrams embedded as **SVG only**.
 
+DOCX is sequenced *after* ODT ([phase 2](phase-2-odf-output.md)) because it is the more
+expensive path: it is the only feature in the project that adds a NuGet dependency, and that
+dependency is reflection-based and hostile to AOT. ODT already gives Windows recipients a
+Word-openable document. DOCX remains worth building because Word treats ODF as a
+convert-on-import path with a fidelity warning, while a directly-written `.docx` is rendered
+exactly as authored — and because SVG diagram display through Word's ODF importer is uncertain
+(phase 2 measures it and records the result, which is the main input to how urgent this phase
+really is).
+
 **Prerequisites:** [phase 1](phase-1-html-flowchart.md) complete — `DocumentContent`,
 `IDocumentWriter`, and the flowchart renderer already exist and are format-agnostic.
+[Phase 2](phase-2-odf-output.md) is strongly recommended first: it establishes the
+Markdown-to-office prose mapping (headings, nested lists, tables, code blocks, quotes) and its
+test fixtures, which this phase mirrors in OOXML.
 
 **Reading:** [05-output-writers](../05-output-writers.md) (the mapping table and the exact
 OOXML pieces), [06-aot-and-dependencies](../06-aot-and-dependencies.md) (the OpenXml AOT
@@ -18,7 +30,7 @@ SVG image embedding, DOCX-specific diagnostics, structural tests, and containmen
 warnings.
 
 Out of scope: PNG raster fallback ([phase 5](phase-5-docx-png-fallback.md)), ODT
-([phase 6](phase-6-odf-output.md)), headers/footers, page setup beyond defaults, table of
+([phase 2](phase-2-odf-output.md)), headers/footers, page setup beyond defaults, table of
 contents, cross-references, tracked changes, templates/`.dotx`.
 
 ## Tasks
@@ -58,7 +70,8 @@ contents, cross-references, tracked changes, templates/`.dotx`.
    constructs (raw HTML, anything unmapped) render as plain text plus a `WRITER001` diagnostic —
    never an exception.
 
-6. **Diagram embedding (SVG-only).** Implement precisely the four OOXML pieces from
+6. **Diagram embedding (SVG-only).** Reuse the diagram sizing/alt-text logic already exercised
+   by the ODT writer, then implement precisely the four OOXML pieces from
    [05-output-writers](../05-output-writers.md): an `image/svg+xml` `ImagePart`; a
    `Drawing`/`wp:inline` with `wp:extent` in EMU (`px * 9525`) and `wp:docPr` carrying the alt
    text; `pic:pic` with `blipFill`/`spPr`; and the
@@ -78,7 +91,7 @@ contents, cross-references, tracked changes, templates/`.dotx`.
 9. **Wire up.** `MarkdownRenderer`'s writer `switch` gains the `Docx` branch; the CLI's
    `--format docx` now works and its extension inference maps `.docx` → `OutputFormat.Docx`.
 
-10. **Tests** — area 8 of [07-testing-strategy](../07-testing-strategy.md): package opens,
+10. **Tests** — area 9 of [07-testing-strategy](../07-testing-strategy.md): package opens,
     `OpenXmlValidator` reports zero errors, structural assertions for headings/lists/tables/runs,
     the SVG image part + extension element + resolvable `r:embed`, fallback code-block content,
     and determinism across two renders. Also assert the HTML path still passes the AOT smoke test
@@ -90,8 +103,9 @@ contents, cross-references, tracked changes, templates/`.dotx`.
       Microsoft Word without a repair prompt**, with correct headings, paragraphs, nested lists,
       tables, code blocks, and quotes.
 - [ ] The same file opens in **LibreOffice Writer on Linux** with correct text structure
-      (diagram images may not display there — documented and accepted for SVG-only; addressed by
-      [phase 5](phase-5-docx-png-fallback.md) / [phase 6](phase-6-odf-output.md)).
+      (diagram images may not display there — documented and accepted for SVG-only; Linux users
+      are better served by the ODT output from [phase 2](phase-2-odf-output.md), and broad
+      raster compatibility is [phase 5](phase-5-docx-png-fallback.md)).
 - [ ] Diagrams display as crisp vector images in Word 2016+/Microsoft 365.
 - [ ] `OpenXmlValidator` reports **zero** validation errors for every fixture.
 - [ ] Structural XML tests pass: heading style ids, table row/cell counts and header row, list

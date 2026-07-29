@@ -16,8 +16,8 @@ flowchart TD
     I --> J
     F --> J
     J --> K[HtmlDocumentWriter - single self-contained HTML]
+    J --> N[OdtDocumentWriter - OpenDocument package]
     J --> L[DocxDocumentWriter - OpenXML package]
-    J --> N[OdtDocumentWriter - OpenDocument package, planned]
     K --> M[bytes or file on disk]
     L --> M
     N --> M
@@ -52,8 +52,8 @@ them is an SVG fragment (plus its intrinsic width/height) or a fallback code blo
 | `IDiagramRenderer` impls | Parse one diagram type, lay it out, emit SVG | Geometry + SVG only |
 | `SvgBuilder` | Escaping-safe SVG element emission, text metrics estimation | Nothing else |
 | `HtmlDocumentWriter` | Self-contained HTML assembly | Markdig HTML renderer, SVG strings |
+| `OdtDocumentWriter` | ODF package assembly | `ZipArchive` + `XmlWriter`, SVG strings |
 | `DocxDocumentWriter` | OOXML package assembly | DocumentFormat.OpenXml, SVG strings |
-| `OdtDocumentWriter` (planned) | ODF package assembly | `ZipArchive` + `XmlWriter`, SVG strings |
 
 ## Proposed solution layout
 
@@ -90,8 +90,8 @@ src/
     Writers/
       IDocumentWriter.cs
       HtmlDocumentWriter.cs
-      DocxDocumentWriter.cs      // phase 2
-      Odt/                       // phase 6 (planned)
+      Odt/                       // phase 2
+      DocxDocumentWriter.cs      // phase 6
   MarkdownDotNetRenderer.Cli/
     MarkdownDotNetRenderer.Cli.csproj
     Program.cs
@@ -109,20 +109,22 @@ files stay nearly empty.
 ## Design constraints that shape the architecture
 
 - **Single pass, no mutation of the Markdig AST.** We read the AST and build our own
-  ordered block list. Mutating Markdig nodes to inject HTML would break the DOCX path,
-  which is not HTML-based.
+  ordered block list. Mutating Markdig nodes to inject HTML would break the ODT and DOCX paths,
+  which are not HTML-based.
 - **SVG fragments, not full SVG documents.** Diagram renderers emit an `<svg>` element with
   explicit `width`/`height`/`viewBox` and no XML prolog, so HTML can inline it directly and
-  DOCX can wrap it in a standalone SVG part with a prolog added at that point.
+  the ODF/OOXML writers can store it as a standalone SVG part with a prolog added at that point.
 - **Reflection-free Core.** No `Activator.CreateInstance`, no attribute scanning to find
   diagram renderers; the registry is an explicit list/dictionary populated in code. This is
   what keeps `PublishAot` clean.
 - **Writers are constructed, not discovered.** `RenderOptions.Format` selects a writer via a
-  `switch`, which is also the only place a new output format (e.g. ODT) touches the pipeline. The DOCX writer type lives in Core but is only touched on the DOCX branch, so an
-  HTML-only consumer never pulls OpenXml code paths at runtime (see
+  `switch`, which is also the only place adding an output format touches the pipeline. The DOCX
+  writer type lives in Core but is only touched on the DOCX branch, so an HTML- or ODT-only
+  consumer never pulls OpenXml code paths at runtime (see
   [06-aot-and-dependencies](06-aot-and-dependencies.md) for the trimming caveat).
-- **Determinism.** Same input bytes → same output bytes, on every OS. Package timestamps are
-  pinned to a fixed value and rendered text uses `\n` rather than `Environment.NewLine`, so
+- **Determinism.** Same input bytes → same output bytes, on every OS. Package timestamps (DOCX
+  core properties, ODF `meta.xml`) are
+  pinned to fixed values and rendered text uses `\n` rather than `Environment.NewLine`, so
   golden-file tests are viable across Linux, macOS, and Windows.
 - **No platform-specific APIs.** Every output format is written directly as a file-format
   package (HTML text, OOXML zip, ODF zip) — never by automating an installed Office suite — so

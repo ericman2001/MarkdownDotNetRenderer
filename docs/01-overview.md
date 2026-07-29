@@ -1,15 +1,15 @@
 # 01 — Project Overview
 
 MarkdownDotNetRenderer is a pure-C# renderer that turns GitHub-Flavored Markdown
-(including embedded Mermaid diagrams) into **self-contained HTML** and **DOCX**
-documents, with **no JavaScript anywhere in the rendering path**.
+(including embedded Mermaid diagrams) into **self-contained HTML** and office documents
+(**ODT**, then **DOCX**), with **no JavaScript anywhere in the rendering path**.
 
 ## Goals
 
-1. **Share Markdown with non-technical Windows users.** A `.md` file with diagrams is
-   useless to a reviewer who has Word and a browser and nothing else. The renderer
-   produces a single `.html` file (double-click, it opens) or a `.docx` file (opens in
-   Word) that contains the prose *and* the diagrams.
+1. **Share Markdown with non-technical readers.** A `.md` file with diagrams is useless to a
+   reviewer who has a browser and an office suite and nothing else. The renderer produces a
+   single `.html` file (double-click, it opens) or an office document — `.odt` or `.docx` — that
+   contains the prose *and* the diagrams.
 2. **Full GFM support** — tables, task lists, autolinks, strikethrough, fenced code —
    via [Markdig](https://github.com/xoofx/markdig)'s advanced pipeline.
 3. **Mermaid diagrams rendered in-process, in C#.** Fenced ` ```mermaid ` blocks become
@@ -22,9 +22,11 @@ documents, with **no JavaScript anywhere in the rendering path**.
    Windows**. Linux is a primary development and CI target, not an afterthought — which rules
    out Windows-only APIs and Office automation entirely
    ([06-aot-and-dependencies](06-aot-and-dependencies.md)).
-7. **An open-format office output.** An OpenDocument Text (`.odt`) writer is a planned target
-   so recipients on LibreOffice/OpenOffice — the common case on Linux — get a natively
-   supported document with vector diagrams ([phase 6](phases/phase-6-odf-output.md)).
+7. **An open-format office output first.** OpenDocument Text (`.odt`) is the first office format
+   ([phase 2](phases/phase-2-odf-output.md)): it adds no dependency, is AOT-clean, carries SVG
+   natively, and opens in LibreOffice/OpenOffice *and* in Word 2010+. DOCX follows
+   ([phase 6](phases/phase-6-docx.md)) because Word renders a natively-written `.docx` exactly as
+   authored, while it treats `.odt` as a convert-on-import path.
 
 ## The "pure C# / no JS" philosophy
 
@@ -67,14 +69,14 @@ edge label, and a sane non-overlapping layout. It does **not** need to match
   headless Linux build agent.
 - A general-purpose graph layout library. Layout code exists only to serve diagram
   rendering and is intentionally simple.
-- Editing/round-tripping DOCX files, or importing existing DOCX templates.
+- Editing/round-tripping existing DOCX/ODT files, or importing document templates.
 
 ## Target users
 
 - **Developers who write docs in Markdown** and must deliver a reviewable artifact to
   managers, clients, or auditors on Windows, or to LibreOffice users on Linux.
 - **Build/CI pipelines** — typically Linux containers — that need to publish Markdown docs as
-  HTML or DOCX without installing Node, a browser, or an office suite in the image.
+  HTML or an office document without installing Node, a browser, or an office suite in the image.
 - **Library consumers**, including closed-source applications, which is why the license
   is LGPLv3 (see [08-licensing](08-licensing.md)).
 
@@ -86,12 +88,13 @@ edge label, and a sane non-overlapping layout. It does **not** need to match
 | AOT | CLI sets `<PublishAot>true</PublishAot>`; Core sets `<IsAotCompatible>true</IsAotCompatible>` and stays reflection-free |
 | JavaScript | **None.** No Node, no headless browser, no JS engine, no `<script>` in output |
 | Markdown parser | Markdig, GFM/advanced pipeline (`UseAdvancedExtensions`) |
-| Outputs | Self-contained HTML (inline SVG) and DOCX; **ODT planned** ([phase 6](phases/phase-6-odf-output.md)) |
+| Outputs | Self-contained HTML (inline SVG), then ODT ([phase 2](phases/phase-2-odf-output.md)), then DOCX ([phase 6](phases/phase-6-docx.md)) |
 | Platforms | Linux, macOS, Windows — all first-class; no Windows-only APIs, no Office automation |
 | DOCX diagrams | **SVG-only** embedding (newer Word). PNG raster fallback **deferred** |
 | Mermaid engine | Pluggable `IDiagramRenderer` per diagram type, dispatched on the first token |
 | Unsupported diagrams | Fall back to the raw mermaid source as a fenced/preformatted code block; **never throw** |
 | Mermaid fidelity | Structurally correct and readable; not pixel-perfect |
+| ODT writer | Hand-written ODF XML + `ZipArchive`; no dependency, fully AOT-clean |
 | DOCX writer | DocumentFormat.OpenXml (MIT), isolated behind `IDocumentWriter` |
 | API shape | Async: `Task<byte[]> RenderAsync(...)`, plus `Task RenderFileAsync(...)` |
 | Projects | `MarkdownDotNetRenderer.Core` (library), `MarkdownDotNetRenderer.Cli` (exe), `MarkdownDotNetRenderer.Tests` (xUnit) |
@@ -103,4 +106,4 @@ edge label, and a sane non-overlapping layout. It does **not** need to match
 - [04 — Mermaid engine](04-mermaid-engine.md) for the interesting part.
 - [phase 0](phases/phase-0-scaffolding.md) and [phase 1](phases/phase-1-html-flowchart.md)
   are the first two units of implementation work.
-- [phase 6](phases/phase-6-odf-output.md) for the planned OpenDocument output.
+- [phase 2](phases/phase-2-odf-output.md) for the OpenDocument output that follows it.

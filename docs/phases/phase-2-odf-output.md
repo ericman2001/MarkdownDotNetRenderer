@@ -1,16 +1,21 @@
-# Phase 6 — OpenDocument (ODT) Output for LibreOffice / OpenOffice
+# Phase 2 — OpenDocument (ODT) Output for LibreOffice / OpenOffice
 
-**Goal:** a third output format, `OutputFormat.Odt`, producing an OpenDocument Text (`.odt`)
+**Goal:** the second output format, `OutputFormat.Odt`, producing an OpenDocument Text (`.odt`)
 file that opens natively in LibreOffice Writer, Apache OpenOffice, and Collabora — with prose
 and **native SVG diagrams**, and **no new dependency**.
 
+ODT comes before DOCX ([phase 6](phase-6-docx.md)) deliberately: it is the cheaper of the two
+office formats by every measure — no NuGet dependency, no reflection, no trim/AOT suppressions,
+and SVG diagrams that simply work — so it delivers a shareable office document sooner and with
+less risk. It also solves the prose-mapping problem (headings, lists, tables, code, quotes)
+once, in a simpler format, which the DOCX writer then mirrors.
+
 **Prerequisites:** [phase 1](phase-1-html-flowchart.md) (the `IDocumentWriter` seam and
-diagram SVG). [Phase 2](phase-2-docx.md) is not strictly required, but doing DOCX first means
-the prose-mapping problem is already understood and the fixtures/tests exist to mirror.
+diagram SVG). Nothing else.
 
 **Reading:** [05-output-writers](../05-output-writers.md) (writer table and ODT sketch),
 [06-aot-and-dependencies](../06-aot-and-dependencies.md) (why this path is the most AOT-friendly
-office format), [07-testing-strategy](../07-testing-strategy.md) (area 9).
+office format), [07-testing-strategy](../07-testing-strategy.md) (area 8).
 
 ## Why ODT
 
@@ -26,6 +31,12 @@ office format), [07-testing-strategy](../07-testing-strategy.md) (area 9).
   ([06-aot-and-dependencies](../06-aot-and-dependencies.md)).
 - LibreOffice can convert `.odt` → `.docx`/PDF headlessly if a consumer needs those, so this
   format is also a useful interchange base.
+- Word 2010+ and Microsoft 365 **can** open `.odt` directly, so this format is not
+  Linux-only in practice. It is not a *replacement* for DOCX, though: Word treats ODF as an
+  import/convert path (with a fidelity warning), and whether Word's ODF importer renders an SVG
+  referenced from `draw:image` is unverified — see the acceptance criteria below, which record it
+  as an explicit empirical check rather than an assumption. That uncertainty is precisely why
+  [phase 6](phase-6-docx.md) still exists.
 
 ## Package structure to produce
 
@@ -77,7 +88,7 @@ All XML is written with `XmlWriter` using explicit namespace prefixes (`office`,
    Convert px → physical units with `InvariantCulture` formatting.
 6. **Determinism**: fixed `meta.xml` timestamps, sequential picture and automatic-style names,
    and fixed zip entry order, so repeated renders produce identical bytes.
-7. **Tests** — area 9 of [07-testing-strategy](../07-testing-strategy.md): `mimetype` is entry 0
+7. **Tests** — area 8 of [07-testing-strategy](../07-testing-strategy.md): `mimetype` is entry 0
    and uncompressed with the exact expected bytes; all parts present and well-formed
    (`XDocument.Parse`); the manifest lists exactly the entries in the zip; heading outline levels,
    list nesting, table row/cell counts, and span properties are correct; the diagram frame's
@@ -89,7 +100,8 @@ All XML is written with `XmlWriter` using explicit namespace prefixes (`office`,
 9. **Docs**: mark ODT as supported in [05-output-writers](../05-output-writers.md), the README
    support table, and [01-overview](../01-overview.md)'s decision table; note in
    [phase 5](phase-5-docx-png-fallback.md) that ODT closes much of the compatibility gap that
-   phase motivated.
+   phase motivated. Record the observed behaviour of **Word's** ODF import (especially SVG
+   diagram display) here, since it informs how much [phase 6](phase-6-docx.md) is still needed.
 
 ## Acceptance criteria
 
@@ -99,6 +111,10 @@ All XML is written with `XmlWriter` using explicit namespace prefixes (`office`,
 - [ ] Diagrams **display as vector images** in LibreOffice Writer — no rasterizer, no PNG.
 - [ ] The file also opens in Apache OpenOffice Writer (prose correct; SVG support may vary by
       version — record the observed behaviour).
+- [ ] **Measured, not assumed:** open the same `.odt` in a recent Microsoft Word and record what
+      happens to the prose *and* to the SVG diagrams (rendered / rasterized / missing). Write the
+      result into this document — it is the main input to how [phase 6](phase-6-docx.md) is
+      prioritized.
 - [ ] `mimetype` is the first zip entry, stored uncompressed, with exactly
       `application/vnd.oasis.opendocument.text`.
 - [ ] `META-INF/manifest.xml` lists every entry actually present, with correct media types, and

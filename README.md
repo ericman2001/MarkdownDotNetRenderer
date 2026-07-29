@@ -1,8 +1,9 @@
 # MarkdownDotNetRenderer
 
 A **pure C#** renderer that turns GitHub-Flavored Markdown — including embedded
-[Mermaid](https://mermaid.js.org/) diagrams — into **self-contained HTML** and **DOCX**
-documents you can hand to anyone, with **no JavaScript anywhere in the rendering path**.
+[Mermaid](https://mermaid.js.org/) diagrams — into **self-contained HTML** and office documents
+(**ODT**, then **DOCX**) you can hand to anyone, with **no JavaScript anywhere in the rendering
+path**.
 
 > **Status: design phase.** This repository currently contains design and phased
 > implementation documents only — no source code yet. Implementation begins with
@@ -11,8 +12,8 @@ documents you can hand to anyone, with **no JavaScript anywhere in the rendering
 
 ## Why
 
-You write your design docs in Markdown with Mermaid diagrams. Your reviewer has a browser and
-Word. Existing options for bridging that gap all drag JavaScript into the build: a Node
+You write your design docs in Markdown with Mermaid diagrams. Your reviewer has a browser and an
+office suite. Existing options for bridging that gap all drag JavaScript into the build: a Node
 sidecar running `mermaid-cli`, a headless Chromium, a remote rendering service, or an embedded
 JS engine. This project renders Mermaid **in-process, in C#**, so a single small executable —
 with two NuGet dependencies and no browser, no Node, and no network — produces the artifact.
@@ -49,9 +50,14 @@ package, so it works on a headless Linux build agent.
 | Format | Diagrams | Status |
 | --- | --- | --- |
 | Self-contained HTML | Inline `<svg>` | [Phase 1](docs/phases/phase-1-html-flowchart.md) |
-| DOCX (Word) | Embedded **SVG only** (Word 2016+/365) | [Phase 2](docs/phases/phase-2-docx.md) |
-| ODT (LibreOffice / OpenOffice) | Native SVG, no new dependency | [Phase 6](docs/phases/phase-6-odf-output.md) — planned |
+| ODT (LibreOffice / OpenOffice; also opens in Word 2010+) | Native SVG, no new dependency | [Phase 2](docs/phases/phase-2-odf-output.md) |
+| DOCX (Word) | Embedded **SVG only** (Word 2016+/365) | [Phase 6](docs/phases/phase-6-docx.md) |
 | DOCX with PNG fallback | Raster for older Word | [Phase 5](docs/phases/phase-5-docx-png-fallback.md) — deferred/optional |
+
+ODT comes before DOCX deliberately: it needs no new dependency, is fully AOT-clean, and carries
+SVG natively, so it delivers a shareable office document sooner and with less risk. DOCX follows
+because Word renders a natively-written `.docx` exactly as authored, while it treats `.odt` as a
+convert-on-import path.
 
 ## Mermaid roadmap
 
@@ -67,12 +73,12 @@ package, so it works on a headless Linux build agent.
 ```csharp
 var renderer = new MarkdownRenderer();
 var result = await renderer.RenderAsync(markdownText, RenderOptions.Html);
-await renderer.RenderFileAsync("design.md", "design.docx", RenderOptions.Docx);
+await renderer.RenderFileAsync("design.md", "design.odt", RenderOptions.Odt);
 ```
 
 ```bash
 mdrender --input design.md --output design.html --format html
-mdrender --input design.md --output design.docx --format docx
+mdrender --input design.md --output design.odt --format odt
 ```
 
 ## Documentation
@@ -85,7 +91,7 @@ mdrender --input design.md --output design.docx --format docx
 | [02 — Architecture](docs/02-architecture.md) | Pipeline and data flow, component responsibilities, proposed solution layout |
 | [03 — Core API](docs/03-core-api.md) | `RenderOptions`, `IMarkdownRenderer`, `IDocumentWriter`, diagnostics and error contract |
 | [04 — Mermaid engine](docs/04-mermaid-engine.md) | `IDiagramRenderer` dispatch, fallback behaviour, SVG emission, the layered flowchart layout |
-| [05 — Output writers](docs/05-output-writers.md) | HTML and DOCX writer designs, SVG-embedding OOXML details, ODT sketch |
+| [05 — Output writers](docs/05-output-writers.md) | HTML, ODT, and DOCX writer designs, including the SVG-embedding OOXML/ODF details |
 | [06 — Dependencies, AOT & cross-platform](docs/06-aot-and-dependencies.md) | Dependency budget and licenses, AOT/trim policy and risks, Linux/macOS/Windows requirements |
 | [07 — Testing strategy](docs/07-testing-strategy.md) | xUnit approach: structural, invariant, and golden-file assertions — never pixel comparisons |
 | [08 — Licensing](docs/08-licensing.md) | LGPLv3 rationale, what it means for consumers, dependency-license compatibility |
@@ -99,11 +105,11 @@ acceptance criteria — so it can be handed off and executed independently.
 | --- | --- | --- |
 | 0 | [Scaffolding](docs/phases/phase-0-scaffolding.md) | Solution, three projects, shared build props, CI; builds and tests clean on all three OSes |
 | 1 | [HTML + flowcharts](docs/phases/phase-1-html-flowchart.md) | The vertical slice: Markdown → self-contained HTML with inline flowchart SVG, plus the CLI |
-| 2 | [DOCX](docs/phases/phase-2-docx.md) | `DocxDocumentWriter` with SVG-only diagram embedding |
+| 2 | [ODF (ODT) output](docs/phases/phase-2-odf-output.md) | `OdtDocumentWriter`: LibreOffice/OpenOffice output with native SVG and no new dependency |
 | 3 | [Sequence diagrams](docs/phases/phase-3-sequence-diagrams.md) | `sequenceDiagram` support with a deterministic, solver-free layout |
 | 4 | [Additional diagrams](docs/phases/phase-4-additional-diagrams.md) | Prioritized roadmap: `pie`, `stateDiagram`, `classDiagram`, `erDiagram`, `gantt`, … |
 | 5 | [DOCX PNG fallback](docs/phases/phase-5-docx-png-fallback.md) | **Deferred/optional**: rasterization for older Word, and the dependency/AOT tradeoff |
-| 6 | [ODF (ODT) output](docs/phases/phase-6-odf-output.md) | **Planned**: LibreOffice/OpenOffice output with native SVG and no new dependency |
+| 6 | [DOCX](docs/phases/phase-6-docx.md) | `DocxDocumentWriter` with SVG-only diagram embedding |
 
 ## Dependencies
 

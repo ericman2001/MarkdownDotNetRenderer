@@ -11,26 +11,28 @@ namespace MarkdownDotNetRenderer;
 public enum OutputFormat
 {
     Html,
-    Docx,
 
-    /// <summary>OpenDocument Text for LibreOffice/OpenOffice. Added in phase 6.</summary>
+    /// <summary>OpenDocument Text for LibreOffice/OpenOffice. Added in phase 2.</summary>
     Odt,
+
+    /// <summary>OOXML WordprocessingML for Microsoft Word. Added in phase 6.</summary>
+    Docx,
 }
 
 public sealed class RenderOptions
 {
     public OutputFormat Format { get; init; } = OutputFormat.Html;
 
-    /// <summary>Value for the HTML &lt;title&gt; / DOCX core-properties title.</summary>
+    /// <summary>Value for the HTML &lt;title&gt; / document core-properties title.</summary>
     public string? DocumentTitle { get; init; }
 
-    /// <summary>Extra CSS injected into the HTML &lt;style&gt; block. Ignored for DOCX.</summary>
+    /// <summary>Extra CSS injected into the HTML &lt;style&gt; block. HTML only.</summary>
     public string? AdditionalCss { get; init; }
 
-    /// <summary>Emit the built-in minimal stylesheet. Ignored for DOCX.</summary>
+    /// <summary>Emit the built-in minimal stylesheet. HTML only.</summary>
     public bool IncludeDefaultCss { get; init; } = true;
 
-    /// <summary>Base font family used for SVG diagram labels and DOCX body text.</summary>
+    /// <summary>Base font family used for SVG diagram labels and office-document body text.</summary>
     public string FontFamily { get; init; } = "Segoe UI, Arial, sans-serif";
 
     /// <summary>Base font size, in points, for diagram labels.</summary>
@@ -40,8 +42,8 @@ public sealed class RenderOptions
     public double MaxDiagramWidth { get; init; } = 900;
 
     public static RenderOptions Html { get; } = new() { Format = OutputFormat.Html };
-    public static RenderOptions Docx { get; } = new() { Format = OutputFormat.Docx };
     public static RenderOptions Odt { get; } = new() { Format = OutputFormat.Odt };
+    public static RenderOptions Docx { get; } = new() { Format = OutputFormat.Docx };
 }
 ```
 
@@ -90,7 +92,7 @@ but the async pair is the primary surface.
 ```csharp
 public sealed class RenderResult
 {
-    /// <summary>Rendered document bytes: UTF-8 (no BOM) HTML, or the DOCX/ODT package.</summary>
+    /// <summary>Rendered document bytes: UTF-8 (no BOM) HTML, or the ODT/DOCX package.</summary>
     public required ReadOnlyMemory<byte> Content { get; init; }
 
     /// <summary>Non-fatal issues encountered while rendering.</summary>
@@ -119,7 +121,7 @@ can hash or re-use the bytes without re-reading the file.
 | `MERMAID002` | Warning | Diagram type recognized but the source failed to parse | Raw mermaid emitted as a code block |
 | `MERMAID003` | Info | Recognized directive/feature ignored (e.g. `%%{init}%%`, `classDef`) | Diagram rendered without it |
 | `MERMAID004` | Warning | Diagram exceeded a layout guard (node/edge count, cycle depth) | Raw mermaid emitted as a code block |
-| `WRITER001` | Warning | Markdown construct unsupported by the writer (e.g. raw inline HTML in DOCX) | Construct rendered as plain text |
+| `WRITER001` | Warning | Markdown construct unsupported by the writer (e.g. raw inline HTML in ODT/DOCX) | Construct rendered as plain text |
 
 ## Error-handling contract
 
@@ -135,10 +137,10 @@ large graphs — becomes a `RenderDiagnostic` plus a graceful degradation:
 
 - **Unsupported diagram type** → the block renders as a preformatted code block containing
   the original mermaid source verbatim (HTML: `<pre><code class="language-mermaid">`;
-  DOCX: a monospaced, preserved-whitespace paragraph). The reader still sees the diagram
+  ODT/DOCX: a monospaced, preserved-whitespace paragraph). The reader still sees the diagram
   definition, so no information is lost.
 - **Malformed source in a supported type** → same fallback, with `MERMAID002`.
-- **Unsupported Markdown construct in DOCX** (raw HTML blocks, footnote layouts we do not
+- **Unsupported Markdown construct in an office format** (raw HTML blocks, footnote layouts we do not
   map) → best-effort plain-text rendering plus `WRITER001`.
 
 The CLI surfaces diagnostics on stderr and exits `0` when only warnings occurred, so
@@ -181,7 +183,8 @@ public interface IDocumentWriter
 Writers write to a caller-supplied `Stream`, which lets `RenderAsync` target a
 `MemoryStream` and `RenderFileAsync` target a `FileStream` without buffering twice. See
 [05-output-writers](05-output-writers.md) for the implementations. Selecting a format whose
-writer has not shipped yet (e.g. `Odt` before [phase 6](phases/phase-6-odf-output.md)) throws
+writer has not shipped yet (`Odt` before [phase 2](phases/phase-2-odf-output.md), `Docx` before
+[phase 6](phases/phase-6-docx.md)) throws
 `NotSupportedException` with a message naming the format — an API-misuse error, distinct from the
 content-degradation cases below.
 
@@ -198,7 +201,7 @@ var result = await renderer.RenderAsync(markdownText, RenderOptions.Html);
 var html = Encoding.UTF8.GetString(result.Content.Span);
 
 // To disk
-await renderer.RenderFileAsync("design.md", "design.docx", RenderOptions.Docx);
+await renderer.RenderFileAsync("design.md", "design.odt", RenderOptions.Odt);
 
 foreach (var d in result.Diagnostics)
     Console.Error.WriteLine($"{d.Severity} {d.Code} (line {d.SourceLine}): {d.Message}");

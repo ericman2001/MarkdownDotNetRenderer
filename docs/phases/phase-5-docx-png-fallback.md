@@ -1,14 +1,16 @@
 # Phase 5 — DOCX PNG Raster Fallback (Deferred / Optional)
 
-> **Status: FUTURE / OPTIONAL — deferred by design.** Nothing in phases 0–4 may depend on this
-> phase, and no rasterizer dependency may be added before the decision below is explicitly made
-> and recorded. This document exists so the tradeoff is understood, not to schedule work.
+> **Status: FUTURE / OPTIONAL — deferred by design.** No other phase may depend on this one, and
+> no rasterizer dependency may be added before the decision below is explicitly made and
+> recorded. This document exists so the tradeoff is understood, not to schedule work. Note that
+> the phase numbering is not a sequence here: this is the last thing to consider, and
+> [phase 2](phase-2-odf-output.md) may remove the need for it entirely.
 
 **Goal (if undertaken):** make diagrams visible in **every** consumer of the generated `.docx`,
 including Word 2013 and earlier, WordPad, Google Docs, and LibreOffice Writer, by embedding a PNG
 raster image alongside the SVG.
 
-**Prerequisites:** [phase 2](phase-2-docx.md).
+**Prerequisites:** [phase 6](phase-6-docx.md) (the DOCX writer this phase extends).
 
 **Reading:** [05-output-writers](../05-output-writers.md) (the blip structure that this phase
 completes), [06-aot-and-dependencies](../06-aot-and-dependencies.md) (the dependency budget this
@@ -36,10 +38,11 @@ AOT-clean, cross-platform build.** The current answer is to keep the clean build
 
 Prefer these before accepting a rasterizer. They may make this phase unnecessary.
 
-1. **[Phase 6 — ODT output](phase-6-odf-output.md).** LibreOffice/OpenOffice consume SVG
-   natively via ODF, needs no new dependency, and directly serves recipients who don't have
-   modern Word. This is the cheapest way to close most of the compatibility gap and is the
-   recommended path.
+1. **[Phase 2 — ODT output](phase-2-odf-output.md).** LibreOffice/OpenOffice consume SVG
+   natively via ODF, this needs no new dependency, and recent Word can open `.odt` directly — so
+   it serves both the non-Word recipient *and* (with converter-level fidelity) the Word
+   recipient. This is the cheapest way to close most of the compatibility gap, which is why it is
+   sequenced early rather than here.
 2. **DrawingML-native diagrams.** Emit diagrams as *native Word shapes* (`wps:wsp` /
    `mc:AlternateContent` groups) instead of an image. Since our layout is already a set of rects,
    lines, polygons, and text runs, translating it to DrawingML shapes is mechanical — and the
@@ -62,7 +65,8 @@ Prefer these before accepting a rasterizer. They may make this phase unnecessary
    Core does not reference, so consumers who don't want native assets never acquire them.
 4. **`RenderOptions` additions**: `RasterFallback` (`None` | `WhenAvailable` | `Required`) and
    `RasterScale` (default 2× for high-DPI printing).
-5. **DOCX writer change** — the reason task 6 of phase 2 was factored for it: add a second
+5. **DOCX writer change** — the reason task 6 of [phase 6](phase-6-docx.md) was factored for it:
+   add a second
    `ImagePart` (`image/png`), point `a:blip/@r:embed` at the **PNG** and leave
    `asvg:svgBlip/@r:embed` pointing at the SVG. This is the shape Microsoft actually intends:
    modern Word prefers the `svgBlip`, everything else shows the PNG.
@@ -80,9 +84,9 @@ Prefer these before accepting a rasterizer. They may make this phase unnecessary
 
 - [ ] A generated `.docx` displays diagrams in Word 2013, LibreOffice Writer (Linux), and Google
       Docs, while Word 2016+/365 still shows the crisp **vector** version.
-- [ ] The default build (no raster package referenced) is **byte-for-byte unchanged** from
-      phase 2/3 output, keeps exactly two runtime dependencies, and still publishes AOT-clean for
-      the HTML path.
+- [ ] The default build (no raster package referenced) is **byte-for-byte unchanged** from the
+      pre-phase output, keeps exactly two runtime dependencies, and still publishes AOT-clean for
+      the HTML and ODT paths.
 - [ ] The rasterizer decision, license, native-asset story, and AOT impact are recorded in
       [06-aot-and-dependencies](../06-aot-and-dependencies.md).
 - [ ] No GPL/AGPL-licensed rasterizer is used ([08-licensing](../08-licensing.md)).

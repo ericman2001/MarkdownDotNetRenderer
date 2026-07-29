@@ -8,12 +8,14 @@ dependency.
 | Package | Used by | License | LGPLv3 compatible as a dependency? |
 | --- | --- | --- | --- |
 | [Markdig](https://www.nuget.org/packages/Markdig) | Core (all phases) | BSD-2-Clause | Yes — permissive, no reciprocal obligations |
-| [DocumentFormat.OpenXml](https://www.nuget.org/packages/DocumentFormat.OpenXml) | Core, DOCX path only (phase 2+) | MIT | Yes — permissive |
+| [DocumentFormat.OpenXml](https://www.nuget.org/packages/DocumentFormat.OpenXml) | Core, DOCX path only ([phase 6](phases/phase-6-docx.md)) | MIT | Yes — permissive |
 | xUnit (+ `xunit.runner.visualstudio`, `Microsoft.NET.Test.Sdk`) | Tests only | Apache-2.0 / MIT | Yes; test-only, never shipped |
 
 Also allowed, because they ship with the runtime: `System.IO.Compression`,
-`System.Xml.XmlWriter`, `System.Text.Json` — relevant to the planned ODT writer
-([phase 6](phases/phase-6-odf-output.md)), which needs **no** new package.
+`System.Xml.XmlWriter`, `System.Text.Json` — this is what the ODT writer
+([phase 2](phases/phase-2-odf-output.md)) is built from, so it needs **no** new package. ODT is
+sequenced before DOCX partly for this reason: it delivers an office format at zero cost to the
+dependency budget and the AOT story.
 
 ### Explicitly disallowed
 
@@ -80,23 +82,24 @@ raises `IL2xxx`/`IL3xxx` warnings that `TreatWarningsAsErrors` would turn into b
 - All OpenXml usage is confined to `Writers/DocxDocumentWriter.cs` and its helpers. No OpenXml
   type appears in any public API signature — the public surface exchanges
   `DocumentContent`/`Stream` only.
-- The HTML path must remain fully AOT-clean, and this is verified, not assumed: a CI job
-  publishes the CLI with `PublishAot` and runs the produced native binary end-to-end on an
-  HTML render. That test is the definition of "AOT-clean".
+- The HTML **and ODT** paths must remain fully AOT-clean, and this is verified, not assumed: a CI
+  job publishes the CLI with `PublishAot` and runs the produced native binary end-to-end on an
+  HTML render and an ODT render. That test is the definition of "AOT-clean".
 - Trim/AOT warnings originating from OpenXml are suppressed **narrowly**, at the DOCX writer
   file/member level (targeted `#pragma warning disable` or a scoped `NoWarn`), never
   solution-wide, and each suppression carries a comment explaining it.
-- If suppression proves too invasive, the fallback plan (decided at phase 2 time, recorded
+- If suppression proves too invasive, the fallback plan (decided at phase 6 time, recorded
   there) is to move the DOCX writer into a separate
   `MarkdownDotNetRenderer.OpenXml` package that Core does not reference, with the CLI
-  registering it. That preserves an AOT-perfect HTML-only deployment at the cost of one more
-  assembly.
+  registering it. That preserves an AOT-perfect HTML+ODT deployment at the cost of one more
+  assembly — and because ODT ships first, such a deployment is already a complete product rather
+  than a degraded one.
 - The DOCX branch is documented as **not guaranteed to work under `PublishAot`** until proven
   by test. A CLI invoked with `--format docx` on an AOT build that fails must produce a clear
   error, not a crash.
 
-The planned ODT writer has no such problem (hand-written XML + `ZipArchive`), which is a point
-in its favour as the primary "office document" path for AOT builds.
+The ODT writer has no such problem (hand-written XML + `ZipArchive`), which is why it is the
+primary "office document" path for AOT builds — and why it ships first.
 
 ## Cross-platform requirement
 
@@ -118,6 +121,8 @@ What this requires:
   none. This is already satisfied: `TextMetrics` estimates widths from a static table
   ([04-mermaid-engine](04-mermaid-engine.md)). Output references font *families* by name and
   lets the consuming application substitute.
+- **No native dependencies.** Both the HTML and ODT paths are pure managed code over the BCL, so
+  a plain `dotnet build`/`dotnet test` works in any SDK container with no extra system packages.
 - **AOT prerequisites on Linux.** `PublishAot` requires `clang`, `zlib1g-dev`, and the
   standard build toolchain (`sudo apt-get install clang zlib1g-dev` on Debian/Ubuntu; the
   `dotnet/sdk` container images already include them). Cross-OS AOT publishing is not
@@ -127,11 +132,12 @@ What this requires:
   `macos-latest`; `dotnet publish -r <rid> /p:PublishAot=true` plus a smoke run of the native
   binary on `linux-x64` and `win-x64` at minimum.
 
-Verification targets to record per phase: **on Linux** the produced `.html` must open in
-Firefox/Chromium, and (phase 2+) the produced `.docx` must open in LibreOffice Writer with
-correct text structure — accepting that SVG-only diagrams may not display there until either
-the [PNG fallback](phases/phase-5-docx-png-fallback.md) or the
-[ODT writer](phases/phase-6-odf-output.md) lands.
+Verification targets to record per phase, **on Linux**: the produced `.html` must open in
+Firefox/Chromium; the produced `.odt` ([phase 2](phases/phase-2-odf-output.md)) must open in
+LibreOffice Writer with correct text structure **and visible vector diagrams**; and the produced
+`.docx` ([phase 6](phases/phase-6-docx.md)) must open in LibreOffice Writer with correct text
+structure — accepting that its SVG-only diagrams may not display there until the
+[PNG fallback](phases/phase-5-docx-png-fallback.md) lands, which is much of why ODT comes first.
 
 ## Size and performance expectations
 

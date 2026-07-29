@@ -113,7 +113,19 @@ a disconnected pair, a long-span edge):
   every OS. A documented `UPDATE_GOLDEN=1` env-var switch rewrites the expectation to make
   intentional changes a one-command, reviewable diff.
 
-### 8. `DocxDocumentWriter` (phase 2)
+### 8. `OdtDocumentWriter` (phase 2)
+
+`mimetype` is the first zip entry and stored uncompressed with exactly the expected bytes;
+`content.xml`, `styles.xml`, `meta.xml`, and `META-INF/manifest.xml` are present and well-formed
+(`XDocument.Parse`); the manifest lists exactly the entries actually in the zip, with correct
+media types; headings map to `text:h` with the right `text:outline-level`; nested lists map to
+nested `text:list`; GFM tables map to `table:table` with the right row/cell counts and a header
+row; emphasis maps to `text:span` with the expected automatic style properties; the diagram
+`draw:image/@xlink:href` resolves to an existing `Pictures/*.svg` entry whose content matches the
+fragment; fallback code blocks preserve the verbatim mermaid source; and two renders of the same
+input are byte-identical.
+
+### 9. `DocxDocumentWriter` (phase 6)
 
 - The package opens with `WordprocessingDocument.Open` without validation errors, and
   `OpenXmlValidator` (2019 target) reports zero errors for the kitchen-sink sample.
@@ -128,17 +140,12 @@ a disconnected pair, a long-span edge):
 - Fallback code blocks appear as monospaced content, and the original mermaid text is present.
 - Determinism: two renders of the same input produce identical `document.xml`.
 
-### 9. `OdtDocumentWriter` (phase 6, planned)
-
-Mirror of the DOCX suite: `mimetype` is the first zip entry and stored uncompressed;
-`content.xml`, `styles.xml`, and `META-INF/manifest.xml` are present and well-formed; the
-manifest lists every part; headings map to `text:h` with the right `text:outline-level`; tables
-map to `table:table`; the SVG is a `Pictures/*.svg` entry referenced by `draw:image`.
-
 ### 10. End-to-end and cross-platform
 
-- `IMarkdownRenderer.RenderAsync` for both formats on the kitchen-sink sample: non-empty
+- `IMarkdownRenderer.RenderAsync` for every shipped format on the kitchen-sink sample: non-empty
   output, expected magic bytes (`<!DOCTYPE` / `PK\x03\x04`), and only the expected diagnostics.
+- Selecting a format whose writer has not shipped yet throws `NotSupportedException` naming the
+  format — asserted, so the pre-phase-2/6 behaviour is defined rather than accidental.
 - `RenderFileAsync` writes the file, creates missing directories or fails cleanly, and returns
   the same bytes as `RenderAsync`.
 - Cancellation: a pre-cancelled token yields `OperationCanceledException`.
@@ -146,8 +153,8 @@ map to `table:table`; the SVG is a `Pictures/*.svg` entry referenced by `draw:im
   assumptions, so they pass on Linux.
 - CI runs the full suite on `ubuntu-latest`, `windows-latest`, and `macos-latest`, plus the
   **AOT smoke test**: `dotnet publish -r <rid> /p:PublishAot=true` for the CLI and a run of the
-  native binary rendering a sample to HTML, asserting exit code 0 and a non-empty file. That
-  job is what actually enforces the AOT policy.
+  native binary rendering a sample to HTML (and, from phase 2, to ODT), asserting exit code 0 and
+  a non-empty file. That job is what actually enforces the AOT policy.
 
 ## Fixtures and conventions
 

@@ -13,7 +13,8 @@ rules), [08-licensing](../08-licensing.md) (headers and notices).
 
 - Solution + three projects with correct references.
 - Shared build configuration via `Directory.Build.props`.
-- Dependency installation (Markdig; OpenXml is added in [phase 2](phase-2-docx.md)).
+- Dependency installation (Markdig; OpenXml is not added until [phase 6](phase-6-docx.md), and
+  [phase 2](phase-2-odf-output.md) adds no package at all).
 - Repository hygiene: `.gitignore`, `.gitattributes`, `THIRD-PARTY-NOTICES.md`, CI workflow.
 - **Not** in scope: any renderer, writer, CLI argument handling beyond a stub, or diagram code.
 

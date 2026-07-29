@@ -1,13 +1,13 @@
 # Phase 3 — Sequence Diagrams
 
-**Goal:** `sequenceDiagram` blocks render as readable SVG in both HTML and DOCX, using a
+**Goal:** `sequenceDiagram` blocks render as readable SVG in every output format, using a
 deterministic left-to-right actor / top-to-bottom message layout. **No graph solver is
 involved.**
 
 **Prerequisites:** [phase 1](phase-1-html-flowchart.md) (dispatch, SVG plumbing, HTML writer)
-and, for the DOCX acceptance criteria, [phase 2](phase-2-docx.md). Adding this renderer requires
-**no changes** to the pipeline or to either writer — that is the design payoff being validated
-here.
+and, for the office-format acceptance criteria, [phase 2](phase-2-odf-output.md). Adding this
+renderer requires **no changes** to the pipeline or to any writer — that is the design payoff
+being validated here.
 
 **Reading:** [04-mermaid-engine](../04-mermaid-engine.md).
 
@@ -82,7 +82,8 @@ construction — no iteration, no heuristics.
    column; everything inside the viewBox), determinism, well-formed XML, and the
    `MERMAID003`-with-content behaviour for deferred constructs.
 7. Update the roadmap table in [phase 4](phase-4-additional-diagrams.md) and the README to move
-   `sequenceDiagram` from "planned" to "supported".
+   `sequenceDiagram` from "planned" to "supported", and verify the same fixtures in whichever
+   office formats have shipped.
 
 ## Acceptance criteria
 
@@ -90,8 +91,9 @@ construction — no iteration, no heuristics.
       inline SVG: each actor has a labelled header and a dashed lifeline, each message is an
       arrow between the correct lifelines in source order with its label legible, and nothing
       overlaps illegibly.
-- [ ] The same sample renders in **DOCX** with the diagram visible in Word 2016+ — with **no
-      changes to `DocxDocumentWriter`**, proving the writer/diagram separation holds.
+- [ ] The same sample renders in **ODT** with the diagram visible in LibreOffice Writer — with
+      **no changes to `OdtDocumentWriter`**, proving the writer/diagram separation holds. Once
+      [phase 6](phase-6-docx.md) lands, the same must hold for `DocxDocumentWriter` in Word 2016+.
 - [ ] All four arrow styles (`->>`, `-->>`, `->`, `-x`) are visually distinguishable, and
       self-messages and notes render correctly.
 - [ ] `loop`/`alt`/`opt`/`activate` constructs do not break the render: the contained messages

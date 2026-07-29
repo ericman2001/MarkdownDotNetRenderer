@@ -6,8 +6,13 @@ format-agnostic `DocumentContent` (prose blocks, diagram blocks, fallback code b
 | Writer | Format | Extension | Dependency | Phase |
 | --- | --- | --- | --- | --- |
 | `HtmlDocumentWriter` | Self-contained HTML5 | `.html` | Markdig only | [1](phases/phase-1-html-flowchart.md) |
-| `DocxDocumentWriter` | OOXML WordprocessingML | `.docx` | DocumentFormat.OpenXml | [2](phases/phase-2-docx.md) |
-| `OdtDocumentWriter` | OpenDocument Text (LibreOffice/OpenOffice) | `.odt` | none (hand-written XML + zip) | [6](phases/phase-6-odf-output.md) — planned |
+| `OdtDocumentWriter` | OpenDocument Text (LibreOffice/OpenOffice; also opens in Word 2010+) | `.odt` | none (hand-written XML + zip) | [2](phases/phase-2-odf-output.md) |
+| `DocxDocumentWriter` | OOXML WordprocessingML | `.docx` | DocumentFormat.OpenXml | [6](phases/phase-6-docx.md) |
+
+ODT is implemented before DOCX because it needs no dependency and is AOT-clean; DOCX follows
+because Word renders a natively-written `.docx` exactly as authored, where it treats `.odt` as a
+convert-on-import path. See [phase 2](phases/phase-2-odf-output.md) and
+[phase 6](phases/phase-6-docx.md).
 
 ## HtmlDocumentWriter
 
@@ -69,6 +74,21 @@ plus `AdditionalCss` gives full control to a consumer who wants their own look.
   offline.
 - Opens correctly by double-click in Chrome, Edge, Firefox, and Safari, on Windows, Linux, and
   macOS.
+
+## OdtDocumentWriter
+
+OpenDocument Text is the natively-supported format of LibreOffice/OpenOffice and is the
+better artifact for recipients who don't run Microsoft Word — including Linux users. Word 2010+
+can also open it, at converter-level fidelity. Design sketch (full detail in
+[phase 2](phases/phase-2-odf-output.md)):
+
+- An `.odt` is a zip containing `mimetype` (stored uncompressed, first entry), `content.xml`,
+  `styles.xml`, `meta.xml`, `META-INF/manifest.xml`, plus `Pictures/`.
+- No NuGet dependency is needed: `System.IO.Compression.ZipArchive` plus
+  `System.Xml.XmlWriter` are enough, and both are AOT-clean. This makes the ODT path *more*
+  AOT-friendly than the DOCX path.
+- ODF consumes SVG natively (`draw:frame`/`draw:image` referencing a `Pictures/*.svg` entry),
+  so no rasterizer is needed there either.
 
 ## DocxDocumentWriter
 
@@ -132,7 +152,7 @@ Adding a PNG next to the SVG (a second `ImagePart` referenced by `a:blip/@r:embe
 diagrams display in every Word version and in LibreOffice. It requires an SVG rasterizer,
 every candidate of which drags in native or reflection-heavy dependencies that conflict with
 the AOT goal. **Explicitly deferred** to
-[phase 5](phases/phase-5-docx-png-fallback.md); nothing in the Phase 2 writer may assume a
+[phase 5](phases/phase-5-docx-png-fallback.md); nothing in the DOCX writer may assume a
 rasterizer exists, and the drawing-construction code should be factored so a second blip
 relationship can be slotted in later without restructuring.
 
@@ -143,22 +163,9 @@ options) and `docPr` ids are assigned from a per-document counter, so identical 
 produces byte-identical packages apart from zip metadata — which keeps structural tests and
 golden-file comparisons viable ([07-testing-strategy](07-testing-strategy.md)).
 
-## Planned: OdtDocumentWriter
-
-OpenDocument Text is the natively-supported format of LibreOffice/OpenOffice and is the
-better artifact for recipients who don't run Microsoft Word — including Linux users. Design
-sketch (full detail in [phase 6](phases/phase-6-odf-output.md)):
-
-- An `.odt` is a zip containing `mimetype` (stored uncompressed, first entry), `content.xml`,
-  `styles.xml`, `meta.xml`, `META-INF/manifest.xml`, plus `Pictures/`.
-- No NuGet dependency is needed: `System.IO.Compression.ZipArchive` plus
-  `System.Xml.XmlWriter` are enough, and both are AOT-clean. This makes the ODT path *more*
-  AOT-friendly than the DOCX path.
-- ODF consumes SVG natively (`draw:frame`/`draw:image` referencing a `Pictures/*.svg` entry),
-  so no rasterizer is needed there either.
-
 ## Choosing a writer
 
-`MarkdownRenderer` maps `RenderOptions.Format` to a writer with a plain `switch`. The mapping
+`MarkdownRenderer` maps `RenderOptions.Format` to a writer with a plain `switch`; a format whose
+writer has not shipped yet throws `NotSupportedException` naming the format. The mapping
 also drives the CLI's `--format` values and its default output extension when `--output` is
 omitted.

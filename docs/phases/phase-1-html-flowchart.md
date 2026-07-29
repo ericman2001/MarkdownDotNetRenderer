@@ -19,14 +19,14 @@ In scope: Markdig GFM pipeline, mermaid block extraction, the `IDiagramRenderer`
 and `LR`, `SvgBuilder` + `TextMetrics`, `HtmlDocumentWriter`, the public `MarkdownRenderer`,
 the CLI, and unit tests for all of it.
 
-Out of scope: DOCX ([phase 2](phase-2-docx.md)), sequence diagrams
-([phase 3](phase-3-sequence-diagrams.md)), any other diagram type
-([phase 4](phase-4-additional-diagrams.md)), `subgraph` boxes, Mermaid theming/`classDef`,
-PNG rasterization, ODT ([phase 6](phase-6-odf-output.md)).
+Out of scope: ODT ([phase 2](phase-2-odf-output.md)), DOCX ([phase 6](phase-6-docx.md)),
+sequence diagrams ([phase 3](phase-3-sequence-diagrams.md)), any other diagram type
+([phase 4](phase-4-additional-diagrams.md)), `subgraph` boxes, Mermaid theming/`classDef`, and
+PNG rasterization ([phase 5](phase-5-docx-png-fallback.md)).
 
-`OutputFormat.Docx` and `OutputFormat.Odt` must exist in the enum, but selecting either in this
-phase returns a clear `NotSupportedException`-style error message from the CLI (documented,
-tested), not a crash.
+`OutputFormat.Odt` and `OutputFormat.Docx` must exist in the enum, but selecting either in this
+phase returns a clear `NotSupportedException`-style error message from the CLI naming the phase
+that implements it (documented, tested), not a crash.
 
 ## Tasks
 
@@ -99,7 +99,7 @@ Split into parser / model / layout / renderer as in
 
 ### 8. CLI
 
-`mdrender --input <path> --output <path> [--format html|docx] [--title <text>] [--strict] [--help] [--version]`
+`mdrender --input <path> --output <path> [--format html|odt|docx] [--title <text>] [--strict] [--help] [--version]`
 
 - Hand-rolled argument parsing (no `System.CommandLine`, keeping the dependency budget at
   two). Accept `-i`/`-o`/`-f` short forms.
@@ -137,8 +137,8 @@ deterministic, `TD` vs `LR`, guards), SVG structure and well-formedness, dispatc
       source, exactly one `MERMAID001` warning is reported, and **no exception is thrown**.
 - [ ] Malformed flowchart source degrades to the same code-block fallback with `MERMAID002`.
 - [ ] Every emitted SVG parses as well-formed XML.
-- [ ] `--format docx` produces a clear "not implemented until phase 2" error and a non-zero exit
-      code, not a crash or an empty file.
+- [ ] `--format odt` and `--format docx` each produce a clear "not implemented until phase 2/6"
+      error and a non-zero exit code, not a crash or an empty file.
 - [ ] `dotnet build` is warning-free and `dotnet test` fully green on Linux, macOS, and Windows.
 - [ ] The AOT CI job publishes the CLI with `PublishAot=true` and the **native binary
       successfully renders the sample to HTML** — this is the phase's proof that the HTML path is
