@@ -1,0 +1,130 @@
+# MarkdownDotNetRenderer
+
+A **pure C#** renderer that turns GitHub-Flavored Markdown — including embedded
+[Mermaid](https://mermaid.js.org/) diagrams — into **self-contained HTML** and **DOCX**
+documents you can hand to anyone, with **no JavaScript anywhere in the rendering path**.
+
+> **Status: design phase.** This repository currently contains design and phased
+> implementation documents only — no source code yet. Implementation begins with
+> [phase 0](docs/phases/phase-0-scaffolding.md). Start with
+> [docs/01-overview.md](docs/01-overview.md).
+
+## Why
+
+You write your design docs in Markdown with Mermaid diagrams. Your reviewer has a browser and
+Word. Existing options for bridging that gap all drag JavaScript into the build: a Node
+sidecar running `mermaid-cli`, a headless Chromium, a remote rendering service, or an embedded
+JS engine. This project renders Mermaid **in-process, in C#**, so a single small executable —
+with two NuGet dependencies and no browser, no Node, and no network — produces the artifact.
+
+## The no-JS constraint
+
+Explicitly excluded from the rendering path:
+
+- No Node.js sidecar, no `mermaid-cli`
+- No headless browser (Puppeteer/Playwright/Chromium)
+- No remote service (mermaid.ink, Kroki)
+- No embedded JS engine (Jint, ClearScript, Jurassic)
+- No `<script>` tags in the output — the HTML renders diagrams offline, from inline `<svg>`
+
+The tradeoff we accept: Mermaid layout is re-implemented in C# for a *subset* of diagram
+types, targeting **"structurally correct and readable," not pixel-perfect Mermaid**. Diagram
+types that aren't implemented yet degrade gracefully to a preformatted code block containing
+the original mermaid source — they never throw and never lose information.
+
+## Build targets
+
+| Target | Description |
+| --- | --- |
+| `MarkdownDotNetRenderer.Core` | Reusable library. `IsAotCompatible`, reflection-free, async API |
+| `MarkdownDotNetRenderer.Cli` | Console executable (`mdrender`), published with `PublishAot` |
+| `MarkdownDotNetRenderer.Tests` | xUnit test suite |
+
+**Runtime:** C# on .NET 9. **Platforms:** Linux, macOS, and Windows are all first-class —
+no Windows-only APIs and no Office automation; every format is written directly as a file
+package, so it works on a headless Linux build agent.
+
+## Output formats
+
+| Format | Diagrams | Status |
+| --- | --- | --- |
+| Self-contained HTML | Inline `<svg>` | [Phase 1](docs/phases/phase-1-html-flowchart.md) |
+| DOCX (Word) | Embedded **SVG only** (Word 2016+/365) | [Phase 2](docs/phases/phase-2-docx.md) |
+| ODT (LibreOffice / OpenOffice) | Native SVG, no new dependency | [Phase 6](docs/phases/phase-6-odf-output.md) — planned |
+| DOCX with PNG fallback | Raster for older Word | [Phase 5](docs/phases/phase-5-docx-png-fallback.md) — deferred/optional |
+
+## Mermaid roadmap
+
+| Diagram type | Phase |
+| --- | --- |
+| `flowchart` / `graph` (TD, LR) | [Phase 1](docs/phases/phase-1-html-flowchart.md) |
+| `sequenceDiagram` | [Phase 3](docs/phases/phase-3-sequence-diagrams.md) |
+| `pie`, `stateDiagram`, `classDiagram`, `erDiagram`, `gantt`, then others | [Phase 4](docs/phases/phase-4-additional-diagrams.md) (prioritized) |
+| Anything not yet implemented | Falls back to a code block with a warning diagnostic — never an exception |
+
+## Planned usage
+
+```csharp
+var renderer = new MarkdownRenderer();
+var result = await renderer.RenderAsync(markdownText, RenderOptions.Html);
+await renderer.RenderFileAsync("design.md", "design.docx", RenderOptions.Docx);
+```
+
+```bash
+mdrender --input design.md --output design.html --format html
+mdrender --input design.md --output design.docx --format docx
+```
+
+## Documentation
+
+### Design
+
+| Document | Contents |
+| --- | --- |
+| [01 — Overview](docs/01-overview.md) | Goals, constraints, non-goals, target users, resolved-decision table |
+| [02 — Architecture](docs/02-architecture.md) | Pipeline and data flow, component responsibilities, proposed solution layout |
+| [03 — Core API](docs/03-core-api.md) | `RenderOptions`, `IMarkdownRenderer`, `IDocumentWriter`, diagnostics and error contract |
+| [04 — Mermaid engine](docs/04-mermaid-engine.md) | `IDiagramRenderer` dispatch, fallback behaviour, SVG emission, the layered flowchart layout |
+| [05 — Output writers](docs/05-output-writers.md) | HTML and DOCX writer designs, SVG-embedding OOXML details, ODT sketch |
+| [06 — Dependencies, AOT & cross-platform](docs/06-aot-and-dependencies.md) | Dependency budget and licenses, AOT/trim policy and risks, Linux/macOS/Windows requirements |
+| [07 — Testing strategy](docs/07-testing-strategy.md) | xUnit approach: structural, invariant, and golden-file assertions — never pixel comparisons |
+| [08 — Licensing](docs/08-licensing.md) | LGPLv3 rationale, what it means for consumers, dependency-license compatibility |
+
+### Phased implementation
+
+Each phase document is self-contained — scope, prerequisites, concrete tasks, and explicit
+acceptance criteria — so it can be handed off and executed independently.
+
+| Phase | Document | Outcome |
+| --- | --- | --- |
+| 0 | [Scaffolding](docs/phases/phase-0-scaffolding.md) | Solution, three projects, shared build props, CI; builds and tests clean on all three OSes |
+| 1 | [HTML + flowcharts](docs/phases/phase-1-html-flowchart.md) | The vertical slice: Markdown → self-contained HTML with inline flowchart SVG, plus the CLI |
+| 2 | [DOCX](docs/phases/phase-2-docx.md) | `DocxDocumentWriter` with SVG-only diagram embedding |
+| 3 | [Sequence diagrams](docs/phases/phase-3-sequence-diagrams.md) | `sequenceDiagram` support with a deterministic, solver-free layout |
+| 4 | [Additional diagrams](docs/phases/phase-4-additional-diagrams.md) | Prioritized roadmap: `pie`, `stateDiagram`, `classDiagram`, `erDiagram`, `gantt`, … |
+| 5 | [DOCX PNG fallback](docs/phases/phase-5-docx-png-fallback.md) | **Deferred/optional**: rasterization for older Word, and the dependency/AOT tradeoff |
+| 6 | [ODF (ODT) output](docs/phases/phase-6-odf-output.md) | **Planned**: LibreOffice/OpenOffice output with native SVG and no new dependency |
+
+## Dependencies
+
+Two runtime packages, total. Neither pulls a native or JavaScript dependency.
+
+| Package | License | Used for |
+| --- | --- | --- |
+| [Markdig](https://github.com/xoofx/markdig) | BSD-2-Clause | GFM Markdown parsing |
+| [DocumentFormat.OpenXml](https://github.com/dotnet/Open-XML-SDK) | MIT | DOCX writing (isolated behind `IDocumentWriter`) |
+
+See [06 — Dependencies, AOT & cross-platform](docs/06-aot-and-dependencies.md) for the policy
+that keeps it that way.
+
+## License
+
+**LGPLv3** (`LGPL-3.0-or-later`), chosen so closed-source applications can link the library
+while improvements to the library itself flow back.
+
+Since LGPLv3 is a set of additional permissions on top of GPLv3, both texts are included:
+
+- [`LICENSE`](LICENSE) — GNU General Public License v3.0
+- [`LICENSE.LESSER`](LICENSE.LESSER) — GNU Lesser General Public License v3.0
+
+Rationale and dependency-compatibility analysis: [08 — Licensing](docs/08-licensing.md).
