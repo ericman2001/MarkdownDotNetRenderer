@@ -101,22 +101,55 @@ if grep -oiE 'https?://[^"'"'"' )]*' "$SMOKE_HTML" | grep -v '^http://www\.w3\.o
   fail
 fi
 
+echo "==> Smoke run of native binary (odt)"
+SMOKE_ODT="$SMOKE_DIR/flowchart-demo.odt"
+"$BINARY" --input samples/flowchart-demo.md --output "$SMOKE_ODT" --format odt
+
+if [ ! -s "$SMOKE_ODT" ]; then
+  echo "Native ODT smoke render produced no output at $SMOKE_ODT" >&2
+  fail
+fi
+
+# A zip local file header, so the package is at least structurally a zip.
+if [ "$(dd if="$SMOKE_ODT" bs=1 count=2 2>/dev/null)" != "PK" ]; then
+  echo "ODT smoke render is not a zip package." >&2
+  fail
+fi
+
+# The mimetype entry must be first and stored, which puts its bytes at a fixed offset: a 30-byte
+# local header plus the 8-byte name. Reading them back proves both the order and that no
+# compression was applied.
+ODT_MIMETYPE="$(dd if="$SMOKE_ODT" bs=1 skip=38 count=39 2>/dev/null)"
+if [ "$ODT_MIMETYPE" != "application/vnd.oasis.opendocument.text" ]; then
+  echo "ODT smoke render does not start with an uncompressed mimetype entry." >&2
+  echo "Found: $ODT_MIMETYPE" >&2
+  fail
+fi
+
+# Entry names live uncompressed in the zip directory, so the required parts are greppable.
+for needle in 'content.xml' 'styles.xml' 'meta.xml' 'META-INF/manifest.xml' 'Pictures/diagram-1.svg'; do
+  if ! grep -qaF -- "$needle" "$SMOKE_ODT"; then
+    echo "ODT smoke render is missing the package entry: $needle" >&2
+    fail
+  fi
+done
+
 # Formats whose writers have not shipped must fail loudly rather than write a broken file.
 # A non-zero exit is the expectation here, so the ERR trap has to stand down for one command.
 trap - ERR
 set +e
-"$BINARY" --input samples/flowchart-demo.md --output "$SMOKE_DIR/out.odt" --format odt \
-  >/dev/null 2>"$SMOKE_DIR/odt.err"
-ODT_STATUS=$?
+"$BINARY" --input samples/flowchart-demo.md --output "$SMOKE_DIR/out.docx" --format docx \
+  >/dev/null 2>"$SMOKE_DIR/docx.err"
+DOCX_STATUS=$?
 set -e
 trap fail ERR
-if [ "$ODT_STATUS" -eq 0 ]; then
-  echo "--format odt must fail until its writer ships." >&2
+if [ "$DOCX_STATUS" -eq 0 ]; then
+  echo "--format docx must fail until its writer ships." >&2
   fail
 fi
-if ! grep -qF 'not implemented' "$SMOKE_DIR/odt.err"; then
-  echo "--format odt must explain that the writer is not implemented yet." >&2
-  cat "$SMOKE_DIR/odt.err" >&2
+if ! grep -qF 'not implemented' "$SMOKE_DIR/docx.err"; then
+  echo "--format docx must explain that the writer is not implemented yet." >&2
+  cat "$SMOKE_DIR/docx.err" >&2
   fail
 fi
 

@@ -252,7 +252,7 @@ internal static class CommandLine
         writer.WriteLine("  -i, --input <path>    Markdown file to render (required).");
         writer.WriteLine("  -o, --output <path>   Output file. Defaults to the input path with the");
         writer.WriteLine("                        format's extension.");
-        writer.WriteLine("  -f, --format <fmt>    html (default), odt (phase 2), or docx (phase 5).");
+        writer.WriteLine("  -f, --format <fmt>    html (default), odt, or docx (phase 5).");
         writer.WriteLine("                        Inferred from --output's extension when omitted.");
         writer.WriteLine("      --title <text>    Document title; defaults to the first heading.");
         writer.WriteLine("      --strict          Exit 2 if any warning was reported.");

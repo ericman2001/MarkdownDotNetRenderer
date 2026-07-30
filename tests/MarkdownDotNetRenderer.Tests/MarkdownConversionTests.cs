@@ -134,7 +134,6 @@ public sealed class MarkdownConversionTests
     }
 
     [Theory]
-    [InlineData(OutputFormat.Odt, "phase 2")]
     [InlineData(OutputFormat.Docx, "phase 5")]
     public async Task Unimplemented_Formats_Fail_Clearly(OutputFormat format, string phase)
     {
@@ -176,7 +175,7 @@ public sealed class MarkdownConversionTests
     {
         var renderer = new MarkdownRenderer();
         await Assert.ThrowsAsync<NotSupportedException>(() => renderer.RenderFileAsync(
-            "does-not-exist.md", "out.odt", RenderOptions.Odt));
+            "does-not-exist.md", "out.docx", RenderOptions.Docx));
     }
 
     [Fact]

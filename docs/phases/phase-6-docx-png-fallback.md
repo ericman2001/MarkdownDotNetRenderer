@@ -38,11 +38,14 @@ AOT-clean, cross-platform build.** The current answer is to keep the clean build
 
 Prefer these before accepting a rasterizer. They may make this phase unnecessary.
 
-1. **[Phase 2 — ODT output](phase-2-odf-output.md).** LibreOffice/OpenOffice consume SVG
-   natively via ODF, this needs no new dependency, and recent Word can open `.odt` directly — so
-   it serves both the non-Word recipient *and* (with converter-level fidelity) the Word
-   recipient. This is the cheapest way to close most of the compatibility gap, which is why it is
-   sequenced early rather than here.
+1. **[Phase 2 — ODT output](phase-2-odf-output.md) — shipped, and it already closes most of this
+   gap.** LibreOffice/OpenOffice consume SVG natively via ODF, this needs no new dependency, and
+   recent Word can open `.odt` directly — so it serves both the non-Word recipient *and* (with
+   converter-level fidelity) the Word recipient. This is the cheapest way to close most of the
+   compatibility gap, which is why it is sequenced early rather than here. With `.odt` available,
+   a recipient who cannot see the SVG in a `.docx` can be handed the `.odt` instead, and diagrams
+   render as vectors with no rasterizer anywhere in the build. That makes this phase a
+   convenience for recipients who *require* `.docx` specifically, not a correctness gap.
 2. **DrawingML-native diagrams.** Emit diagrams as *native Word shapes* (`wps:wsp` /
    `mc:AlternateContent` groups) instead of an image. Since our layout is already a set of rects,
    lines, polygons, and text runs, translating it to DrawingML shapes is mechanical — and the
