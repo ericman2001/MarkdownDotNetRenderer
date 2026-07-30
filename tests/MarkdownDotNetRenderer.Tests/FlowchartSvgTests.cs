@@ -222,6 +222,56 @@ public sealed class FlowchartSvgTests
     }
 
     [Fact]
+    public void A_Self_Loop_And_Its_Label_Stay_Inside_The_ViewBox()
+    {
+        XElement svg = RenderSvg("flowchart TD\n    A[Retry] -->|again| A\n    A --> B[Done]\n");
+
+        string[] viewBox = svg.Attribute("viewBox")!.Value.Split(' ');
+        double canvasWidth = double.Parse(viewBox[2], CultureInfo.InvariantCulture);
+        double canvasHeight = double.Parse(viewBox[3], CultureInfo.InvariantCulture);
+
+        XElement loop = svg.Descendants(Svg + "g")
+            .Single(g => g.Attribute("class")?.Value == "mdnr-edge" &&
+                         g.Attribute("data-source")?.Value == "A" &&
+                         g.Attribute("data-target")?.Value == "A")
+            .Element(Svg + "path")!;
+
+        foreach ((double x, double y) in PathPoints(loop.Attribute("d")!.Value))
+        {
+            Assert.InRange(x, 0, canvasWidth);
+            Assert.InRange(y, 0, canvasHeight);
+        }
+
+        XElement labelBox = svg.Descendants(Svg + "g")
+            .Single(g => g.Attribute("class")?.Value == "mdnr-edge-label" &&
+                         g.Attribute("data-source")?.Value == "A" &&
+                         g.Attribute("data-target")?.Value == "A")
+            .Element(Svg + "rect")!;
+        double left = double.Parse(
+            labelBox.Attribute("x")!.Value, CultureInfo.InvariantCulture);
+        double boxWidth = double.Parse(
+            labelBox.Attribute("width")!.Value, CultureInfo.InvariantCulture);
+
+        Assert.InRange(left, 0, canvasWidth);
+        Assert.InRange(left + boxWidth, 0, canvasWidth);
+    }
+
+    private static IEnumerable<(double X, double Y)> PathPoints(string path)
+    {
+        double[] numbers = path
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Where(token => double.TryParse(token, CultureInfo.InvariantCulture, out _))
+            .Select(token => double.Parse(token, CultureInfo.InvariantCulture))
+            .ToArray();
+
+        // Control points bound a cubic curve, so containing every number pair contains the curve.
+        for (int i = 0; i + 1 < numbers.Length; i += 2)
+        {
+            yield return (numbers[i], numbers[i + 1]);
+        }
+    }
+
+    [Fact]
     public void The_Font_Family_Option_Reaches_Label_Text()
     {
         XElement svg = RenderSvg(

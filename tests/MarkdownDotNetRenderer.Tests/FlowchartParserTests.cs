@@ -239,4 +239,18 @@ public sealed class FlowchartParserTests
         Assert.Equal("A", edge.SourceId);
         Assert.Equal("A", edge.TargetId);
     }
+
+    [Theory]
+    [InlineData("flowchart TD\n    end --> A\n", "end")]
+    [InlineData("flowchart TD\n    class --> A\n", "class")]
+    [InlineData("flowchart TD\n    A --> style\n", "A")]
+    public void A_Keyword_Used_As_A_Node_Id_In_A_Link_Still_Draws_The_Edge(
+        string source,
+        string sourceId)
+    {
+        FlowchartModel model = Parse(source);
+
+        FlowEdge edge = Assert.Single(model.Edges);
+        Assert.Equal(sourceId, edge.SourceId);
+    }
 }

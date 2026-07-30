@@ -57,6 +57,11 @@ public sealed class GoldenFileTests
         Assert.Single(
             result.Diagnostics,
             diagnostic => diagnostic.Code == RenderDiagnostic.DiagramParseFailure);
+        // Pinning the ignored-feature count catches both duplicate notices and lost ones.
+        Assert.Equal(
+            3,
+            result.Diagnostics.Count(
+                diagnostic => diagnostic.Code == RenderDiagnostic.IgnoredDiagramFeature));
         Assert.All(result.Diagnostics, diagnostic => Assert.NotNull(diagnostic.SourceLine));
         Assert.True(result.HasWarnings);
     }

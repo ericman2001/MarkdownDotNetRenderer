@@ -112,9 +112,18 @@ public sealed class MermaidRenderer
             return result;
         }
 
+        // Detection and the diagram parser both walk the source, so they can spot the same ignored
+        // construct (a %%{ … }%% directive) independently. Report each notice once.
         var combined = new List<RenderDiagnostic>(diagnostics.Count + result.Diagnostics.Count);
-        combined.AddRange(diagnostics);
-        combined.AddRange(result.Diagnostics);
+        var seen = new HashSet<(string Code, string Message)>();
+        foreach (RenderDiagnostic diagnostic in diagnostics.Concat(result.Diagnostics))
+        {
+            if (seen.Add((diagnostic.Code, diagnostic.Message)))
+            {
+                combined.Add(diagnostic);
+            }
+        }
+
         return result with { Diagnostics = combined };
     }
 

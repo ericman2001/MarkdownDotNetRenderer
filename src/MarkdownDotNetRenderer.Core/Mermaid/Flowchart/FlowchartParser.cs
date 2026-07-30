@@ -199,7 +199,9 @@ public static class FlowchartParser
             return true;
         }
 
-        string firstWord = FirstWord(text);
+        // A keyword only introduces an unsupported construct when the statement is not a link, so
+        // 'end --> A' still draws an edge from a node that happens to be named after a keyword.
+        string firstWord = HasLinkOperator(text) ? string.Empty : FirstWord(text);
         foreach (string keyword in IgnoredKeywords)
         {
             if (!firstWord.Equals(keyword, StringComparison.OrdinalIgnoreCase))
@@ -312,6 +314,45 @@ public static class FlowchartParser
         }
 
         return true;
+    }
+
+    /// <summary>Whether a link operator appears outside any node-shape brackets.</summary>
+    private static bool HasLinkOperator(string text)
+    {
+        int depth = 0;
+        for (int i = 0; i < text.Length; i++)
+        {
+            char c = text[i];
+            if (c is '[' or '(' or '{')
+            {
+                depth++;
+                continue;
+            }
+
+            if (c is ']' or ')' or '}')
+            {
+                depth = Math.Max(0, depth - 1);
+                continue;
+            }
+
+            if (depth != 0 || c is not ('-' or '='))
+            {
+                continue;
+            }
+
+            if (MatchesAt(LabelledLinkPattern, text, i) || MatchesAt(PlainLinkPattern, text, i))
+            {
+                return true;
+            }
+        }
+
+        return false;
+
+        static bool MatchesAt(Regex pattern, string input, int start)
+        {
+            Match match = pattern.Match(input, start);
+            return match.Success && match.Index == start && match.Length > 0;
+        }
     }
 
     private static List<FlowNode> ParseNodeGroup(

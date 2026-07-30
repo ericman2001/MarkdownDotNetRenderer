@@ -60,6 +60,19 @@ public sealed class MermaidDispatchTests
     }
 
     [Fact]
+    public void A_Directive_Is_Reported_Once_Even_Though_Detection_And_The_Parser_Both_See_It()
+    {
+        var renderer = new MermaidRenderer();
+
+        DiagramRenderResult result = renderer.Render(
+            "%%{init: {'theme': 'dark'}}%%\nflowchart TD\n  A --> B\n", RenderOptions.Html);
+
+        Assert.True(result.Success);
+        RenderDiagnostic diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(RenderDiagnostic.IgnoredDiagramFeature, diagnostic.Code);
+    }
+
+    [Fact]
     public void A_Byte_Order_Mark_And_Crlf_Endings_Are_Normalized()
     {
         var diagnostics = new List<RenderDiagnostic>();

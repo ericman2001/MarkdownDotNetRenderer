@@ -376,45 +376,55 @@ public static class LayeredLayout
             }
         }
 
-        int processed = 0;
-        while (ready.Count > 0)
+        int processed = Drain();
+
+        while (processed < nodeCount)
         {
-            int node = ready.Min;
-            ready.Remove(node);
-            processed++;
-            foreach (int next in outgoing[node])
+            // Defensive: a residual cycle (back-edge marking should have removed all of them) is
+            // broken by releasing its lowest-numbered node, then ranking continues normally so no
+            // rank is ever derived from a node that has not been ranked yet.
+            int seed = -1;
+            for (int i = 0; i < nodeCount; i++)
             {
-                layers[next] = Math.Max(layers[next], layers[node] + 1);
-                if (--indegree[next] == 0)
+                if (indegree[i] > 0)
                 {
-                    ready.Add(next);
+                    seed = i;
+                    break;
                 }
             }
-        }
 
-        if (processed == nodeCount)
-        {
-            return layers;
-        }
-
-        // Defensive: a residual cycle (should not happen after back-edge marking) is broken by
-        // ranking the remaining nodes after their already-ranked predecessors.
-        for (int i = 0; i < nodeCount; i++)
-        {
-            if (indegree[i] > 0)
+            if (seed < 0)
             {
-                indegree[i] = 0;
-                foreach (OrientedEdge edge in edges)
-                {
-                    if (!edge.IsSelfLoop && edge.LayoutTarget == i)
-                    {
-                        layers[i] = Math.Max(layers[i], layers[edge.LayoutSource] + 1);
-                    }
-                }
+                break;
             }
+
+            indegree[seed] = 0;
+            ready.Add(seed);
+            processed += Drain();
         }
 
         return layers;
+
+        int Drain()
+        {
+            int count = 0;
+            while (ready.Count > 0)
+            {
+                int node = ready.Min;
+                ready.Remove(node);
+                count++;
+                foreach (int next in outgoing[node])
+                {
+                    layers[next] = Math.Max(layers[next], layers[node] + 1);
+                    if (--indegree[next] == 0)
+                    {
+                        ready.Add(next);
+                    }
+                }
+            }
+
+            return count;
+        }
     }
 
     private static void OrderLayers(

@@ -41,6 +41,8 @@ public sealed class FlowchartRenderer : IDiagramRenderer
     private const double VerticalPadding = 16;
     private const double MinNodeWidth = 56;
     private const double MinNodeHeight = 34;
+    private const double SelfLoopBulge = 28;
+    private const double SelfLoopLabelGap = 6;
 
     private readonly LayoutMetrics _metrics;
 
@@ -103,12 +105,16 @@ public sealed class FlowchartRenderer : IDiagramRenderer
         string idPrefix = $"mdnr-{Fingerprint(mermaidSource)}";
         string altText =
             $"flowchart with {model.Nodes.Count} nodes and {model.Edges.Count} edges";
-        string svg = Emit(layout.Layout, model, options, fontSize, idPrefix, altText);
+        // Self-loops are drawn beside their node, which the node-box-based layout cannot know about.
+        double width = Math.Max(
+            layout.Layout.Width,
+            SelfLoopContentRight(layout.Layout, fontSize) + _metrics.Margin);
+        string svg = Emit(layout.Layout, model, options, fontSize, idPrefix, altText, width);
 
         return new DiagramRenderResult(
             true,
             svg,
-            layout.Layout.Width,
+            width,
             layout.Layout.Height,
             altText,
             parsed.Diagnostics);
@@ -159,18 +165,74 @@ public sealed class FlowchartRenderer : IDiagramRenderer
         return sizes;
     }
 
+    /// <summary>
+    /// The rightmost x any self-loop curve or self-loop label reaches, or 0 without self-loops.
+    /// </summary>
+    private static double SelfLoopContentRight(FlowchartLayout layout, double fontSize)
+    {
+        double right = 0;
+        foreach (LayoutEdge edge in layout.Edges)
+        {
+            if (!edge.IsSelfLoop)
+            {
+                continue;
+            }
+
+            LayoutNode? source = FindNode(layout, edge.Edge.SourceId);
+            if (source is null)
+            {
+                continue;
+            }
+
+            right = Math.Max(right, SelfLoopRight(source));
+            if (!string.IsNullOrEmpty(edge.Edge.Label))
+            {
+                double boxWidth = LabelBoxWidth(edge.Edge.Label, fontSize);
+                right = Math.Max(right, SelfLoopLabelAnchorX(source, boxWidth) + (boxWidth / 2));
+            }
+        }
+
+        return right;
+    }
+
+    private static LayoutNode? FindNode(FlowchartLayout layout, string id)
+    {
+        foreach (LayoutNode node in layout.Nodes)
+        {
+            if (!node.IsVirtual && string.Equals(node.Id, id, StringComparison.Ordinal))
+            {
+                return node;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The rightmost x of a self-loop curve. Both control points sit at <c>bulge</c> past the node,
+    /// and a cubic with equal control x reaches three quarters of that offset at its midpoint.
+    /// </summary>
+    private static double SelfLoopRight(LayoutNode source) =>
+        source.Left + source.Width + (SelfLoopBulge * 0.75);
+
+    private static double SelfLoopLabelAnchorX(LayoutNode source, double labelBoxWidth) =>
+        SelfLoopRight(source) + SelfLoopLabelGap + (labelBoxWidth / 2);
+
+    private static double LabelBoxWidth(string label, double fontSize) =>
+        TextMetrics.MeasureWidth(label, fontSize) + 8;
+
     private static string Emit(
         FlowchartLayout layout,
         FlowchartModel model,
         RenderOptions options,
         double fontSize,
         string idPrefix,
-        string altText)
+        string altText,
+        double width)
     {
         string arrowId = $"{idPrefix}-arrow";
         var svg = new SvgBuilder();
 
-        double width = layout.Width;
         double height = layout.Height;
         double renderWidth = width;
         double renderHeight = height;
@@ -362,16 +424,17 @@ public sealed class FlowchartRenderer : IDiagramRenderer
 
         if (edge.IsSelfLoop)
         {
-            double loopStartX = source.Left + source.Width;
+            // Control points are offset horizontally only, so the loop stays within the node's own
+            // vertical band and can never overflow the canvas top or bottom.
+            double loopX = source.Left + source.Width;
             double loopStartY = source.CenterY - (source.Height / 4);
-            double loopEndX = source.Left + source.Width;
             double loopEndY = source.CenterY + (source.Height / 4);
-            double bulge = 28;
+            double controlX = loopX + SelfLoopBulge;
             string path =
-                $"M {SvgBuilder.Number(loopStartX)} {SvgBuilder.Number(loopStartY)} " +
-                $"C {SvgBuilder.Number(loopStartX + bulge)} {SvgBuilder.Number(loopStartY - bulge)} " +
-                $"{SvgBuilder.Number(loopEndX + bulge)} {SvgBuilder.Number(loopEndY + bulge)} " +
-                $"{SvgBuilder.Number(loopEndX)} {SvgBuilder.Number(loopEndY)}";
+                $"M {SvgBuilder.Number(loopX)} {SvgBuilder.Number(loopStartY)} " +
+                $"C {SvgBuilder.Number(controlX)} {SvgBuilder.Number(loopStartY)} " +
+                $"{SvgBuilder.Number(controlX)} {SvgBuilder.Number(loopEndY)} " +
+                $"{SvgBuilder.Number(loopX)} {SvgBuilder.Number(loopEndY)}";
             EmitEdgeGeometry(svg, path, edge.Edge.Directed, arrowId);
             svg.EndElement();
             return;
@@ -433,13 +496,13 @@ public sealed class FlowchartRenderer : IDiagramRenderer
             return;
         }
 
+        double boxWidth = LabelBoxWidth(edge.Edge.Label, fontSize);
+        double boxHeight = TextMetrics.LineHeight(fontSize) + 4;
+
         // Anchor on the clipped route so a short edge's label cannot land inside a node box.
         LayoutPoint anchor = edge.IsSelfLoop
-            ? new LayoutPoint(source.Left + source.Width + 30, source.CenterY)
+            ? new LayoutPoint(SelfLoopLabelAnchorX(source, boxWidth), source.CenterY)
             : LabelAnchor(Route(edge, source, target));
-        double textWidth = TextMetrics.MeasureWidth(edge.Edge.Label, fontSize);
-        double boxWidth = textWidth + 8;
-        double boxHeight = TextMetrics.LineHeight(fontSize) + 4;
 
         svg.StartElement("g")
             .Attribute("class", "mdnr-edge-label")
