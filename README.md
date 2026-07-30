@@ -7,10 +7,11 @@ A **pure C#** renderer that turns GitHub-Flavored Markdown — including embedde
 (**ODT**, then **DOCX**) you can hand to anyone, with **no JavaScript anywhere in the rendering
 path**.
 
-> **Status: phase 0 (scaffolding) complete.** The buildable, testable skeleton is in place —
-> solution, three projects, shared build props, the `build/verify.{sh,ps1}` gate, and the
-> three-OS CI matrix. No rendering logic yet; that begins in
-> [phase 1](docs/phases/phase-1-html-flowchart.md). Start with
+> **Status: phase 1 (HTML + flowcharts) complete.** `mdrender` turns Markdown containing
+> ` ```mermaid ` `flowchart`/`graph` blocks into a single self-contained HTML file with inline,
+> hand-written SVG. ODT ([phase 2](docs/phases/phase-2-odf-output.md)) and DOCX
+> ([phase 5](docs/phases/phase-5-docx.md)) writers, and diagram types beyond flowcharts, are
+> still to come; selecting them reports a clear error or degrades to a code block. Start with
 > [docs/01-overview.md](docs/01-overview.md).
 
 ## Why
@@ -90,17 +91,31 @@ convert-on-import path.
 | `pie`, `stateDiagram`, `classDiagram`, `erDiagram`, `gantt`, then others | [Phase 4](docs/phases/phase-4-additional-diagrams.md) (prioritized) |
 | Anything not yet implemented | Falls back to a code block with a warning diagnostic — never an exception |
 
-## Planned usage
+## Usage
 
 ```csharp
 var renderer = new MarkdownRenderer();
-var result = await renderer.RenderAsync(markdownText, RenderOptions.Html);
-await renderer.RenderFileAsync("design.md", "design.odt", RenderOptions.Odt);
+RenderResult result = await renderer.RenderAsync(markdownText, RenderOptions.Html);
+await renderer.RenderFileAsync("design.md", "design.html", RenderOptions.Html);
 ```
 
 ```bash
 mdrender --input design.md --output design.html --format html
-mdrender --input design.md --output design.odt --format odt
+mdrender --input samples/kitchen-sink.md            # --output defaults to the format's extension
+mdrender --help
+```
+
+Diagnostics go to stderr as `<severity> <code> [line N]: <message>`; stdout stays empty on a
+successful render. Exit codes: `0` success (warnings included), `1` usage or I/O error, `2`
+`--strict` with warnings.
+
+`samples/flowchart-demo.md` and `samples/kitchen-sink.md` are runnable examples;
+`samples/expected/kitchen-sink.html` is the golden output the test suite compares against
+byte-for-byte. Regenerate it with:
+
+```bash
+dotnet run --project src/MarkdownDotNetRenderer.Cli -- \
+  -i samples/kitchen-sink.md -o samples/expected/kitchen-sink.html
 ```
 
 ## Documentation

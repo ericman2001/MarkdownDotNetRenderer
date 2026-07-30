@@ -14,6 +14,23 @@
 // with this library; see the file LICENSE.LESSER. If not, see
 // <https://www.gnu.org/licenses/>.
 
-using MarkdownDotNetRenderer.Cli;
+using Markdig;
 
-return await CommandLine.RunAsync(args, Console.Out, Console.Error).ConfigureAwait(false);
+namespace MarkdownDotNetRenderer.Markdown;
+
+/// <summary>
+/// Supplies the one <see cref="MarkdownPipeline"/> used for both parsing and HTML rendering, so
+/// extension behaviour cannot drift between the two.
+/// </summary>
+public static class MarkdownPipelineFactory
+{
+    /// <summary>The shared GFM/advanced pipeline. Markdig pipelines are immutable and thread-safe.</summary>
+    public static MarkdownPipeline Default { get; } = Create();
+
+    /// <summary>Builds a fresh pipeline with the same configuration as <see cref="Default"/>.</summary>
+    /// <returns>A new pipeline instance.</returns>
+    public static MarkdownPipeline Create() =>
+        new MarkdownPipelineBuilder()
+            .UseAdvancedExtensions()
+            .Build();
+}

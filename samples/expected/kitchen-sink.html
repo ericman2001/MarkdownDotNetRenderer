@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kitchen sink</title>
+<style>
+:root { color-scheme: light dark; }
+body { margin: 0; padding: 2rem 1rem; font-family: Segoe UI, Arial, sans-serif; line-height: 1.55; color: #111827; background: #ffffff; }
+.markdown-body { max-width: 46rem; margin: 0 auto; }
+.markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4, .markdown-body h5, .markdown-body h6 { line-height: 1.25; margin: 1.6em 0 0.6em; }
+.markdown-body h1 { font-size: 1.9rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3em; }
+.markdown-body h2 { font-size: 1.5rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3em; }
+.markdown-body p { margin: 0 0 1em; }
+.markdown-body a { color: #1d4ed8; }
+.markdown-body code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9em; background: #f3f4f6; padding: 0.15em 0.35em; border-radius: 3px; }
+.markdown-body pre { background: #f3f4f6; padding: 0.9em 1em; border-radius: 6px; overflow-x: auto; }
+.markdown-body pre code { background: none; padding: 0; }
+.markdown-body blockquote { margin: 0 0 1em; padding: 0.2em 1em; border-left: 4px solid #d1d5db; color: #374151; }
+.markdown-body table { border-collapse: collapse; margin: 0 0 1em; display: block; overflow-x: auto; }
+.markdown-body th, .markdown-body td { border: 1px solid #d1d5db; padding: 0.4em 0.7em; }
+.markdown-body th { background: #f3f4f6; text-align: left; }
+.markdown-body hr { border: none; border-top: 1px solid #e5e7eb; margin: 2em 0; }
+.markdown-body ul.contains-task-list { list-style: none; padding-left: 1.2em; }
+.markdown-body img { max-width: 100%; }
+.mermaid-figure { margin: 1.5em 0; text-align: center; }
+.mermaid-figure svg { max-width: 100%; height: auto; }
+</style>
+</head>
+<body>
+<main class="markdown-body">
+<h1 id="kitchen-sink">Kitchen sink</h1>
+<p>This document exercises every Markdown construct and every mermaid path that phase 1 supports. It
+is rendered byte-for-byte into <code>samples/expected/kitchen-sink.html</code>, which the golden test compares
+against on every platform.</p>
+<h2 id="inline-formatting">Inline formatting</h2>
+<p>Regular text, <strong>bold</strong>, <em>italic</em>, <em><strong>both</strong></em>, <del>struck through</del>, <code>inline code</code>, and a
+<a href="./flowchart-demo.md">relative link</a>. Escapes work too: *not italic*.</p>
+<h2 id="lists">Lists</h2>
+<ol>
+<li>First item</li>
+<li>Second item
+<ul>
+<li>Nested bullet</li>
+<li>Another nested bullet</li>
+</ul>
+</li>
+<li>Third item</li>
+</ol>
+<ul class="contains-task-list">
+<li class="task-list-item"><input disabled="disabled" type="checkbox" checked="checked" /> Completed task</li>
+<li class="task-list-item"><input disabled="disabled" type="checkbox" /> Outstanding task</li>
+</ul>
+<h2 id="table">Table</h2>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th style="text-align: center;">Phase</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HTML</td>
+<td style="text-align: center;">1</td>
+<td>implemented</td>
+</tr>
+<tr>
+<td>Flowchart</td>
+<td style="text-align: center;">1</td>
+<td>implemented</td>
+</tr>
+<tr>
+<td>ODT</td>
+<td style="text-align: center;">2</td>
+<td>later</td>
+</tr>
+</tbody>
+</table>
+<h2 id="block-quote-and-rule">Block quote and rule</h2>
+<blockquote>
+<p>Deterministic output means the same input always produces the same bytes.
+That is what makes the golden test meaningful.</p>
+</blockquote>
+<hr />
+<h2 id="fenced-code-that-is-not-a-diagram">Fenced code that is not a diagram</h2>
+<pre><code class="language-csharp">var renderer = new MarkdownRenderer();
+RenderResult result = await renderer.RenderAsync(markdown, new RenderOptions());
+</code></pre>
+<h2 id="supported-diagrams">Supported diagrams</h2>
+<p>A top-down flowchart with all four node shapes:</p>
+<figure class="mermaid-figure">
+<svg xmlns="http://www.w3.org/2000/svg" width="246.18" height="462.4" viewBox="0 0 246.18 462.4" role="img" aria-label="flowchart with 6 nodes and 6 edges" class="mdnr-flowchart">
+  <defs>
+    <marker id="mdnr-e2d08c76-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#55637a" />
+    </marker>
+  </defs>
+  <g class="mdnr-edges">
+    <g class="mdnr-edge" data-source="Start" data-target="Read">
+      <line x1="121.88" y1="50" x2="121.88" y2="108" stroke="#55637a" stroke-width="1.5" fill="none" marker-end="url(#mdnr-e2d08c76-arrow)" />
+    </g>
+    <g class="mdnr-edge" data-source="Read" data-target="Check">
+      <line x1="121.88" y1="144" x2="121.88" y2="202" stroke="#55637a" stroke-width="1.5" fill="none" marker-end="url(#mdnr-e2d08c76-arrow)" />
+    </g>
+    <g class="mdnr-edge" data-source="Check" data-target="Draw">
+      <line x1="107.93" y1="254.07" x2="69.75" y2="316.69" stroke="#55637a" stroke-width="1.5" fill="none" marker-end="url(#mdnr-e2d08c76-arrow)" />
+    </g>
+    <g class="mdnr-edge" data-source="Check" data-target="Skip">
+      <line x1="135.83" y1="254.07" x2="174.02" y2="316.69" stroke="#55637a" stroke-width="1.5" fill="none" marker-end="url(#mdnr-e2d08c76-arrow)" />
+    </g>
+    <g class="mdnr-edge" data-source="Draw" data-target="Done">
+      <line x1="69.83" y1="352.4" x2="109.27" y2="410.74" stroke="#55637a" stroke-width="1.5" fill="none" marker-end="url(#mdnr-e2d08c76-arrow)" />
+    </g>
+    <g class="mdnr-edge" data-source="Skip" data-target="Done">
+      <line x1="173.94" y1="352.4" x2="134.5" y2="410.74" stroke="#55637a" stroke-width="1.5" fill="none" marker-end="url(#mdnr-e2d08c76-arrow)" />
+    </g>
+  </g>
+  <g class="mdnr-nodes">
+    <g class="mdnr-node" data-id="Start">
+      <rect x="85.38" y="16" width="73" height="34" rx="17" ry="17" fill="#ffffff" stroke="#33415a" stroke-width="1.5" />
+      <text x="121.88" y="33" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#111827">
+        <tspan x="121.88" dy="0">Start</tspan>
+      </text>
+    </g>
+    <g class="mdnr-node" data-id="Read">
+      <rect x="62.44" y="110" width="118.89" height="34" rx="2" ry="2" fill="#ffffff" stroke="#33415a" stroke-width="1.5" />
+      <text x="121.88" y="127" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#111827">
+        <tspan x="121.88" dy="0">Read Markdown</tspan>
+      </text>
+    </g>
+    <g class="mdnr-node" data-id="Check">
+      <polygon points="121.88,204 209.52,231.2 121.88,258.4 34.24,231.2" fill="#ffffff" stroke="#33415a" stroke-width="1.5" />
+      <text x="121.88" y="231.2" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#111827">
+        <tspan x="121.88" dy="0">Mermaid block?</tspan>
+      </text>
+    </g>
+    <g class="mdnr-node" data-id="Draw">
+      <rect x="16" y="318.4" width="84.67" height="34" rx="8" ry="8" fill="#ffffff" stroke="#33415a" stroke-width="1.5" />
+      <text x="58.34" y="335.4" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#111827">
+        <tspan x="58.34" dy="0">Draw SVG</tspan>
+      </text>
+    </g>
+    <g class="mdnr-node" data-id="Skip">
+      <rect x="140.67" y="318.4" width="89.51" height="34" rx="2" ry="2" fill="#ffffff" stroke="#33415a" stroke-width="1.5" />
+      <text x="185.43" y="335.4" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#111827">
+        <tspan x="185.43" dy="0">Copy prose</tspan>
+      </text>
+    </g>
+    <g class="mdnr-node" data-id="Done">
+      <rect x="85.38" y="412.4" width="73" height="34" rx="17" ry="17" fill="#ffffff" stroke="#33415a" stroke-width="1.5" />
+      <text x="121.88" y="429.4" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#111827">
+        <tspan x="121.88" dy="0">Done</tspan>
+      </text>
+    </g>
+  </g>
+  <g class="mdnr-edge-labels">
+    <g class="mdnr-edge-label" data-source="Check" data-target="Draw">
+      <rect x="74.35" y="275.88" width="28.99" height="19" rx="3" ry="3" fill="#ffffff" stroke="none" />
+      <text x="88.84" y="285.38" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#111827">yes</text>
+    </g>
+    <g class="mdnr-edge-label" data-source="Check" data-target="Skip">
+      <rect x="143.93" y="275.88" width="21.99" height="19" rx="3" ry="3" fill="#ffffff" stroke="none" />
+      <text x="154.93" y="285.38" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#111827">no</text>
+    </g>
+  </g>
+</svg>
+</figure>
+<p>A left-to-right graph, with a long-form edge label, an undirected link, and a chain:</p>
+<figure class="mermaid-figure">
+<svg xmlns="http://www.w3.org/2000/svg" width="525.38" height="66" viewBox="0 0 525.38 66" role="img" aria-label="flowchart with 4 nodes and 3 edges" class="mdnr-flowchart">
+  <defs>
+    <marker id="mdnr-8ee59b70-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#55637a" />
+    </marker>
+  </defs>
+  <g class="mdnr-edges">
+    <g class="mdnr-edge" data-source="A" data-target="B">
+      <line x1="73.96" y1="33" x2="131.96" y2="33" stroke="#55637a" stroke-width="1.5" fill="none" marker-end="url(#mdnr-8ee59b70-arrow)" />
+    </g>
+    <g class="mdnr-edge" data-source="B" data-target="C">
+      <line x1="198.92" y1="33" x2="256.92" y2="33" stroke="#55637a" stroke-width="1.5" fill="none" marker-end="url(#mdnr-8ee59b70-arrow)" />
+    </g>
+    <g class="mdnr-edge" data-source="C" data-target="D">
+      <line x1="339.91" y1="33" x2="399.91" y2="33" stroke="#55637a" stroke-width="1.5" fill="none" />
+    </g>
+  </g>
+  <g class="mdnr-nodes">
+    <g class="mdnr-node" data-id="A">
+      <rect x="16" y="16" width="57.96" height="34" rx="2" ry="2" fill="#ffffff" stroke="#33415a" stroke-width="1.5" />
+      <text x="44.98" y="33" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#111827">
+        <tspan x="44.98" dy="0">Parse</tspan>
+      </text>
+    </g>
+    <g class="mdnr-node" data-id="B">
+      <rect x="133.96" y="16" width="64.96" height="34" rx="2" ry="2" fill="#ffffff" stroke="#33415a" stroke-width="1.5" />
+      <text x="166.44" y="33" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#111827">
+        <tspan x="166.44" dy="0">Layout</tspan>
+      </text>
+    </g>
+    <g class="mdnr-node" data-id="C">
+      <rect x="258.92" y="16" width="80.99" height="34" rx="2" ry="2" fill="#ffffff" stroke="#33415a" stroke-width="1.5" />
+      <text x="299.41" y="33" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#111827">
+        <tspan x="299.41" dy="0">Emit SVG</tspan>
+      </text>
+    </g>
+    <g class="mdnr-node" data-id="D">
+      <rect x="399.91" y="16" width="109.48" height="34" rx="2" ry="2" fill="#ffffff" stroke="#33415a" stroke-width="1.5" />
+      <text x="454.65" y="33" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#111827">
+        <tspan x="454.65" dy="0">Inline in HTML</tspan>
+      </text>
+    </g>
+  </g>
+  <g class="mdnr-edge-labels">
+    <g class="mdnr-edge-label" data-source="A" data-target="B">
+      <rect x="74.16" y="23.5" width="57.61" height="19" rx="3" ry="3" fill="#ffffff" stroke="none" />
+      <text x="102.96" y="33" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#111827">dispatch</text>
+    </g>
+  </g>
+</svg>
+</figure>
+<h2 id="degraded-diagrams">Degraded diagrams</h2>
+<p>An unsupported diagram type falls back to an escaped code block with one <code>MERMAID001</code> warning:</p>
+<pre><code class="language-mermaid">sequenceDiagram
+    Alice-&gt;&gt;Bob: Not until phase 4
+</code></pre>
+<p>A malformed flowchart falls back with <code>MERMAID002</code>:</p>
+<pre><code class="language-mermaid">flowchart TD
+    A[Unterminated --&gt; B
+    --&gt;
+</code></pre>
+<p>Constructs that are recognized but ignored report <code>MERMAID003</code> and still render the rest:</p>
+<figure class="mermaid-figure">
+<svg xmlns="http://www.w3.org/2000/svg" width="96.83" height="254" viewBox="0 0 96.83 254" role="img" aria-label="flowchart with 3 nodes and 2 edges" class="mdnr-flowchart">
+  <defs>
+    <marker id="mdnr-dc420431-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#55637a" />
+    </marker>
+  </defs>
+  <g class="mdnr-edges">
+    <g class="mdnr-edge" data-source="Q" data-target="W">
+      <line x1="48.42" y1="50" x2="48.42" y2="108" stroke="#55637a" stroke-width="1.5" fill="none" marker-end="url(#mdnr-dc420431-arrow)" />
+    </g>
+    <g class="mdnr-edge" data-source="W" data-target="S">
+      <line x1="48.42" y1="144" x2="48.42" y2="202" stroke="#55637a" stroke-width="1.5" fill="none" marker-end="url(#mdnr-dc420431-arrow)" />
+    </g>
+  </g>
+  <g class="mdnr-nodes">
+    <g class="mdnr-node" data-id="Q">
+      <rect x="18.1" y="16" width="60.63" height="34" rx="2" ry="2" fill="#ffffff" stroke="#33415a" stroke-width="1.5" />
+      <text x="48.42" y="33" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#111827">
+        <tspan x="48.42" dy="0">Queue</tspan>
+      </text>
+    </g>
+    <g class="mdnr-node" data-id="W">
+      <rect x="16" y="110" width="64.83" height="34" rx="2" ry="2" fill="#ffffff" stroke="#33415a" stroke-width="1.5" />
+      <text x="48.42" y="127" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#111827">
+        <tspan x="48.42" dy="0">Worker</tspan>
+      </text>
+    </g>
+    <g class="mdnr-node" data-id="S">
+      <rect x="20.42" y="204" width="56" height="34" rx="2" ry="2" fill="#ffffff" stroke="#33415a" stroke-width="1.5" />
+      <text x="48.42" y="221" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#111827">
+        <tspan x="48.42" dy="0">Store</tspan>
+      </text>
+    </g>
+  </g>
+  <g class="mdnr-edge-labels" />
+</svg>
+</figure>
+</main>
+</body>
+</html>

@@ -1,0 +1,270 @@
+// MarkdownDotNetRenderer
+// Copyright (C) 2026 MarkdownDotNetRenderer contributors
+//
+// This library is free software; you can redistribute it and/or modify it under
+// the terms of the GNU Lesser General Public License as published by the Free
+// Software Foundation; either version 3 of the License, or (at your option) any
+// later version.
+//
+// This library is distributed in the hope that it will be useful, but WITHOUT ANY
+// WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+// PARTICULAR PURPOSE. See the GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License along
+// with this library; see the file LICENSE.LESSER. If not, see
+// <https://www.gnu.org/licenses/>.
+
+using System.Text;
+using Markdig;
+using Markdig.Renderers;
+using Markdig.Syntax;
+using Markdig.Syntax.Inlines;
+using MarkdownDotNetRenderer.Markdown;
+
+namespace MarkdownDotNetRenderer.Writers;
+
+/// <summary>
+/// Assembles one self-contained HTML5 document: prose rendered by Markdig's own
+/// <see cref="HtmlRenderer"/>, diagrams inlined as <c>&lt;svg&gt;</c>, fallbacks as escaped
+/// <c>&lt;pre&gt;&lt;code&gt;</c>. No scripts, no external references, UTF-8 without a BOM and
+/// <c>\n</c> line endings, so output is byte-identical on every platform.
+/// </summary>
+public sealed class HtmlDocumentWriter : IDocumentWriter
+{
+    private const string Newline = "\n";
+    private const string DefaultTitle = "Document";
+
+    private readonly MarkdownPipeline _pipeline;
+
+    /// <summary>Creates a writer using the shared default pipeline.</summary>
+    public HtmlDocumentWriter()
+        : this(MarkdownPipelineFactory.Default)
+    {
+    }
+
+    /// <summary>Creates a writer that renders prose with a specific pipeline.</summary>
+    /// <param name="pipeline">The pipeline that parsed the document.</param>
+    public HtmlDocumentWriter(MarkdownPipeline pipeline)
+    {
+        ArgumentNullException.ThrowIfNull(pipeline);
+        _pipeline = pipeline;
+    }
+
+    /// <inheritdoc />
+    public string FileExtension => ".html";
+
+    /// <inheritdoc />
+    public string ContentType => "text/html; charset=utf-8";
+
+    /// <summary>The built-in minimal stylesheet, emitted when <see cref="RenderOptions.IncludeDefaultCss"/> is set.</summary>
+    /// <param name="fontFamily">Body font stack, from the render options.</param>
+    /// <returns>CSS text without a wrapping <c>&lt;style&gt;</c> element.</returns>
+    public static string BuildDefaultCss(string fontFamily)
+    {
+        ArgumentNullException.ThrowIfNull(fontFamily);
+
+        string font = HtmlEscape(fontFamily);
+        return string.Join(Newline,
+            ":root { color-scheme: light dark; }",
+            $"body {{ margin: 0; padding: 2rem 1rem; font-family: {font}; line-height: 1.55; color: #111827; background: #ffffff; }}",
+            ".markdown-body { max-width: 46rem; margin: 0 auto; }",
+            ".markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4, .markdown-body h5, .markdown-body h6 { line-height: 1.25; margin: 1.6em 0 0.6em; }",
+            ".markdown-body h1 { font-size: 1.9rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3em; }",
+            ".markdown-body h2 { font-size: 1.5rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3em; }",
+            ".markdown-body p { margin: 0 0 1em; }",
+            ".markdown-body a { color: #1d4ed8; }",
+            ".markdown-body code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9em; background: #f3f4f6; padding: 0.15em 0.35em; border-radius: 3px; }",
+            ".markdown-body pre { background: #f3f4f6; padding: 0.9em 1em; border-radius: 6px; overflow-x: auto; }",
+            ".markdown-body pre code { background: none; padding: 0; }",
+            ".markdown-body blockquote { margin: 0 0 1em; padding: 0.2em 1em; border-left: 4px solid #d1d5db; color: #374151; }",
+            ".markdown-body table { border-collapse: collapse; margin: 0 0 1em; display: block; overflow-x: auto; }",
+            ".markdown-body th, .markdown-body td { border: 1px solid #d1d5db; padding: 0.4em 0.7em; }",
+            ".markdown-body th { background: #f3f4f6; text-align: left; }",
+            ".markdown-body hr { border: none; border-top: 1px solid #e5e7eb; margin: 2em 0; }",
+            ".markdown-body ul.contains-task-list { list-style: none; padding-left: 1.2em; }",
+            ".markdown-body img { max-width: 100%; }",
+            ".mermaid-figure { margin: 1.5em 0; text-align: center; }",
+            ".mermaid-figure svg { max-width: 100%; height: auto; }");
+    }
+
+    /// <inheritdoc />
+    public async Task WriteAsync(
+        DocumentContent content,
+        Stream destination,
+        RenderOptions options,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        ArgumentNullException.ThrowIfNull(destination);
+        ArgumentNullException.ThrowIfNull(options);
+
+        string html = Render(content, options, cancellationToken);
+        byte[] bytes = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false).GetBytes(html);
+        await destination.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
+        await destination.FlushAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Renders the document to an HTML string.</summary>
+    /// <param name="content">The blocks to write.</param>
+    /// <param name="options">Options controlling title, CSS, and fonts.</param>
+    /// <param name="cancellationToken">Token observed between blocks.</param>
+    /// <returns>The complete HTML document.</returns>
+    public string Render(
+        DocumentContent content,
+        RenderOptions options,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        ArgumentNullException.ThrowIfNull(options);
+
+        var html = new StringBuilder();
+        html.Append("<!DOCTYPE html>").Append(Newline);
+        html.Append("<html lang=\"en\">").Append(Newline);
+        html.Append("<head>").Append(Newline);
+        html.Append("<meta charset=\"utf-8\">").Append(Newline);
+        html.Append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">")
+            .Append(Newline);
+        html.Append("<title>").Append(HtmlEscape(ResolveTitle(content, options))).Append("</title>")
+            .Append(Newline);
+
+        string? additional = string.IsNullOrWhiteSpace(options.AdditionalCss)
+            ? null
+            : options.AdditionalCss;
+        if (options.IncludeDefaultCss || additional is not null)
+        {
+            html.Append("<style>").Append(Newline);
+            if (options.IncludeDefaultCss)
+            {
+                html.Append(BuildDefaultCss(options.FontFamily)).Append(Newline);
+            }
+
+            if (additional is not null)
+            {
+                html.Append(additional).Append(Newline);
+            }
+
+            html.Append("</style>").Append(Newline);
+        }
+
+        html.Append("</head>").Append(Newline);
+        html.Append("<body>").Append(Newline);
+        html.Append("<main class=\"markdown-body\">").Append(Newline);
+
+        foreach (DocumentBlock block in content.Blocks)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            switch (block)
+            {
+                case ProseBlock prose:
+                    html.Append(RenderProse(prose));
+                    break;
+
+                case DiagramBlock diagram:
+                    html.Append("<figure class=\"mermaid-figure\">").Append(Newline);
+                    html.Append(diagram.SvgFragment).Append(Newline);
+                    html.Append("</figure>").Append(Newline);
+                    break;
+
+                case CodeBlock code:
+                    string language = string.IsNullOrEmpty(code.Language)
+                        ? string.Empty
+                        : $" class=\"language-{HtmlEscape(code.Language)}\"";
+                    html.Append("<pre><code").Append(language).Append('>');
+                    html.Append(HtmlEscape(code.Text));
+                    html.Append("</code></pre>").Append(Newline);
+                    break;
+
+                default:
+                    throw new NotSupportedException(
+                        $"Document block type '{block.GetType().Name}' is not supported by the " +
+                        "HTML writer.");
+            }
+        }
+
+        html.Append("</main>").Append(Newline);
+        html.Append("</body>").Append(Newline);
+        html.Append("</html>").Append(Newline);
+        return html.ToString();
+    }
+
+    private string RenderProse(ProseBlock prose)
+    {
+        var text = new StringWriter { NewLine = Newline };
+        var renderer = new HtmlRenderer(text);
+        _pipeline.Setup(renderer);
+
+        foreach (Block node in prose.Nodes)
+        {
+            renderer.Write(node);
+        }
+
+        text.Flush();
+        return text.ToString();
+    }
+
+    private static string ResolveTitle(DocumentContent content, RenderOptions options)
+    {
+        if (!string.IsNullOrWhiteSpace(options.DocumentTitle))
+        {
+            return options.DocumentTitle;
+        }
+
+        foreach (DocumentBlock block in content.Blocks)
+        {
+            if (block is not ProseBlock prose)
+            {
+                continue;
+            }
+
+            foreach (Block node in prose.Nodes)
+            {
+                if (node is HeadingBlock { Level: 1 } heading)
+                {
+                    string text = ExtractText(heading.Inline);
+                    if (!string.IsNullOrWhiteSpace(text))
+                    {
+                        return text;
+                    }
+                }
+            }
+        }
+
+        return DefaultTitle;
+    }
+
+    private static string ExtractText(ContainerInline? container)
+    {
+        if (container is null)
+        {
+            return string.Empty;
+        }
+
+        var text = new StringBuilder();
+        foreach (Inline inline in container)
+        {
+            switch (inline)
+            {
+                case LiteralInline literal:
+                    text.Append(literal.Content.AsSpan());
+                    break;
+                case CodeInline code:
+                    text.Append(code.Content);
+                    break;
+                case ContainerInline nested:
+                    text.Append(ExtractText(nested));
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        return text.ToString();
+    }
+
+    private static string HtmlEscape(string value) => value
+        .Replace("&", "&amp;", StringComparison.Ordinal)
+        .Replace("<", "&lt;", StringComparison.Ordinal)
+        .Replace(">", "&gt;", StringComparison.Ordinal)
+        .Replace("\"", "&quot;", StringComparison.Ordinal);
+}

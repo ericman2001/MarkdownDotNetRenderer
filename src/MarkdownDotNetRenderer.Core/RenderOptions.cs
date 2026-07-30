@@ -17,8 +17,7 @@
 namespace MarkdownDotNetRenderer;
 
 /// <summary>
-/// Immutable options controlling a single render operation. The full behaviour is defined in
-/// docs/03-core-api.md; this phase-0 stub carries the shape only.
+/// Immutable options controlling a single render operation. See docs/03-core-api.md.
 /// </summary>
 public sealed class RenderOptions
 {
@@ -37,7 +36,7 @@ public sealed class RenderOptions
     /// <summary>Base font family used for SVG diagram labels and office-document body text.</summary>
     public string FontFamily { get; init; } = "Segoe UI, Arial, sans-serif";
 
-    /// <summary>Base font size, in points, for diagram labels.</summary>
+    /// <summary>Base font size, in CSS pixels, for diagram labels.</summary>
     public double DiagramFontSize { get; init; } = 12;
 
     /// <summary>Max diagram width in CSS pixels; layout wraps/scales to fit.</summary>

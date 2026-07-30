@@ -64,8 +64,55 @@ try {
     }
 
     Write-Host '==> Smoke run of native binary'
-    # Phase 0: the binary only prints usage and must exit 0. Phase 1 extends this to a real render.
-    Invoke-Checked { & $Binary }
+    Invoke-Checked { & $Binary --version | Out-Null }
+
+    $SmokeDir = Join-Path ([System.IO.Path]::GetTempPath()) ("mdnr-smoke-" + [guid]::NewGuid())
+    New-Item -ItemType Directory -Path $SmokeDir | Out-Null
+    try {
+        # A real render through the native binary: the AOT build must produce self-contained HTML
+        # with inline SVG, not just start up.
+        $SmokeHtml = Join-Path $SmokeDir 'flowchart-demo.html'
+        Invoke-Checked {
+            & $Binary --input 'samples/flowchart-demo.md' --output $SmokeHtml --format html
+        }
+
+        if (-not (Test-Path $SmokeHtml) -or (Get-Item $SmokeHtml).Length -eq 0) {
+            throw "Native smoke render produced no output at $SmokeHtml"
+        }
+
+        $Html = Get-Content -Raw -Path $SmokeHtml
+        foreach ($needle in @('<!DOCTYPE html>', '<svg ', 'mermaid-figure')) {
+            if (-not $Html.Contains($needle)) {
+                throw "Smoke render is missing expected content: $needle"
+            }
+        }
+
+        if ($Html -match '(?i)<script') {
+            throw 'Smoke render contains a <script> element; output must be script-free.'
+        }
+
+        # Every http(s) URL except the SVG namespace identifier would make the output
+        # non-self-contained.
+        $External = [regex]::Matches($Html, '(?i)https?://[^"'' )]*') |
+            ForEach-Object { $_.Value } |
+            Where-Object { $_ -ne 'http://www.w3.org/2000/svg' }
+        if ($External.Count -gt 0) {
+            throw "Smoke render references external resources: $($External -join ', ')"
+        }
+
+        # Formats whose writers have not shipped must fail loudly rather than write a broken file.
+        $OdtOut = Join-Path $SmokeDir 'out.odt'
+        $OdtErrors = & $Binary --input 'samples/flowchart-demo.md' --output $OdtOut --format odt 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            throw '--format odt must fail until its writer ships.'
+        }
+        if (($OdtErrors -join "`n") -notmatch 'not implemented') {
+            throw '--format odt must explain that the writer is not implemented yet.'
+        }
+    }
+    finally {
+        Remove-Item -Recurse -Force $SmokeDir -ErrorAction SilentlyContinue
+    }
 
     Write-Host 'PASS'
 }
