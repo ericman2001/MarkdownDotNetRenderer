@@ -122,6 +122,6 @@ layout.
 - [ ] SVG is well-formed XML, deterministic across repeated renders, and identical across
       Linux/macOS/Windows.
 - [ ] Tests follow [07-testing-strategy](../07-testing-strategy.md) (structural/invariant, never
-      pixel), and `build/verify.sh` still prints `PASS` (warning-free build, green tests, AOT
-      smoke test).
+      pixel), and `build/verify` still prints `PASS` on all three OSes (warning-free build, green
+      tests, AOT smoke test).
 - [ ] The support table in `README.md` and the roadmap table above are updated in the same change.

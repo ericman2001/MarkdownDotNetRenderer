@@ -125,5 +125,5 @@ All XML is written with `XmlWriter` using explicit namespace prefixes (`office`,
       `PublishAot=true` with **no** trim/AOT warning suppressions.
 - [ ] Repeated renders are byte-identical, and output is identical across Linux, macOS, and
       Windows.
-- [ ] `build/verify.sh` prints `PASS`, including the AOT smoke test rendering an `.odt` with the
-      native binary — this path must stay AOT-clean.
+- [ ] `build/verify` prints `PASS` on all three OSes, including the AOT smoke test rendering an
+      `.odt` with the native binary — this path must stay AOT-clean.

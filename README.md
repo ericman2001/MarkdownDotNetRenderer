@@ -47,17 +47,18 @@ package, so it works on a headless Linux build agent.
 
 ## Verifying a build
 
-There is no dependency on a hosted CI service. The authoritative gate is a committed script that
-runs restore → build (warnings are errors) → tests → AOT publish → a render with the native
-binary, and prints a single `PASS`/`FAIL` line:
+There is exactly one definition of a passing build: a committed script that runs restore → build
+(warnings are errors) → tests → AOT publish → a render with the native binary, and prints a single
+`PASS`/`FAIL` line.
 
 ```bash
 build/verify.sh            # Linux/macOS; --no-aot to skip the native publish
 pwsh build/verify.ps1      # Windows
 ```
 
-A GitHub Actions workflow is optional and does nothing but invoke the same script, so it can be
-deleted without losing coverage. Details in
+CI runs that same script on `ubuntu-latest`, `windows-latest`, and `macos-latest` — the workflow
+contains no build logic of its own, so "passes on my machine" and "passes in CI" cannot diverge,
+and anyone can reproduce the exact gate in one command. Details in
 [07 — Testing strategy](docs/07-testing-strategy.md).
 
 ## Output formats
@@ -108,7 +109,7 @@ mdrender --input design.md --output design.odt --format odt
 | [04 — Mermaid engine](docs/04-mermaid-engine.md) | `IDiagramRenderer` dispatch, fallback behaviour, SVG emission, the layered flowchart layout |
 | [05 — Output writers](docs/05-output-writers.md) | HTML, ODT, and DOCX writer designs, including the SVG-embedding OOXML/ODF details |
 | [06 — Dependencies, AOT & cross-platform](docs/06-aot-and-dependencies.md) | Dependency budget and licenses, AOT/trim policy and risks, Linux/macOS/Windows requirements |
-| [07 — Testing strategy](docs/07-testing-strategy.md) | xUnit approach: structural, invariant, and golden-file assertions — never pixel comparisons; the local `build/verify` gate and manual cross-OS checks |
+| [07 — Testing strategy](docs/07-testing-strategy.md) | xUnit approach: structural, invariant, and golden-file assertions — never pixel comparisons; the `build/verify` gate and the three-OS matrix |
 | [08 — Licensing](docs/08-licensing.md) | LGPLv3 rationale, what it means for consumers, dependency-license compatibility |
 
 ### Phased implementation
@@ -118,7 +119,7 @@ acceptance criteria — so it can be handed off and executed independently.
 
 | Phase | Document | Outcome |
 | --- | --- | --- |
-| 0 | [Scaffolding](docs/phases/phase-0-scaffolding.md) | Solution, three projects, shared build props, and the local `build/verify.{sh,ps1}` gate; builds and tests clean |
+| 0 | [Scaffolding](docs/phases/phase-0-scaffolding.md) | Solution, three projects, shared build props, the `build/verify.{sh,ps1}` gate, and a three-OS CI matrix that invokes it |
 | 1 | [HTML + flowcharts](docs/phases/phase-1-html-flowchart.md) | The vertical slice: Markdown → self-contained HTML with inline flowchart SVG, plus the CLI |
 | 2 | [ODF (ODT) output](docs/phases/phase-2-odf-output.md) | `OdtDocumentWriter`: LibreOffice/OpenOffice output with native SVG and no new dependency |
 | 3 | [Sequence diagrams](docs/phases/phase-3-sequence-diagrams.md) | `sequenceDiagram` support with a deterministic, solver-free layout |

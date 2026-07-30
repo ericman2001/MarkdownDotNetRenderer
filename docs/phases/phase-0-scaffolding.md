@@ -16,8 +16,8 @@ rules), [08-licensing](../08-licensing.md) (headers and notices).
 - Dependency installation (Markdig; OpenXml is not added until [phase 5](phase-5-docx.md), and
   [phase 2](phase-2-odf-output.md) adds no package at all).
 - Repository hygiene: `.gitignore`, `.gitattributes`, `THIRD-PARTY-NOTICES.md`.
-- A local `build/verify.{sh,ps1}` script as the authoritative build/test/AOT gate, with an
-  optional CI workflow that merely calls it.
+- A `build/verify.{sh,ps1}` script as the single authoritative build/test/AOT gate, plus a
+  three-OS CI workflow that does nothing but call it.
 - **Not** in scope: any renderer, writer, CLI argument handling beyond a stub, or diagram code.
 
 ## Tasks
@@ -96,9 +96,8 @@ rules), [08-licensing](../08-licensing.md) (headers and notices).
    (BSD-2-Clause) with its notice text. Confirm `LICENSE` (GPLv3) and `LICENSE.LESSER` (LGPLv3)
    both exist at the root.
 
-10. **Local verification script — the authoritative build gate.** The project does not depend on
-    a hosted CI service to know it is green; the gate is a script any contributor can run on
-    their own machine before pushing. Create both, kept in lockstep:
+10. **Verification script — the single authoritative build gate.** One definition of "green",
+    runnable both on a contributor's machine and by CI. Create both, kept in lockstep:
     - `build/verify.sh` (bash, `set -euo pipefail`) and `build/verify.ps1` (PowerShell,
       `$ErrorActionPreference = 'Stop'`), both committed with the shell script marked executable
       via `.gitattributes`.
@@ -110,25 +109,24 @@ rules), [08-licensing](../08-licensing.md) (headers and notices).
       render.
     - Non-zero exit on the first failure, and a single clear PASS/FAIL summary line at the end so
       the result is unambiguous when read by a human rather than a status badge.
-    - Document it in `README.md` and `CONTRIBUTING` guidance: **"run `build/verify.sh` (or
-      `build/verify.ps1`) and paste the summary line before merging."** Every later phase's
-      acceptance criteria are satisfied by this script passing.
+    - Document it in `README.md`: **"run `build/verify.sh` (or `build/verify.ps1`) before
+      pushing."** Every later phase's acceptance criteria are satisfied by this script passing.
 
-11. **Optional CI workflow** (`.github/workflows/ci.yml`). Nice to have, not the gate — it must
-    only *invoke the same script* (`bash build/verify.sh` / `pwsh build/verify.ps1`) so the two
-    can never drift, and so deleting the workflow costs no coverage. Matrix `ubuntu-latest`,
-    `windows-latest`, `macos-latest`; `actions/setup-dotnet` with `9.0.x`; the Linux job installs
-    the AOT prerequisites first (`sudo apt-get install -y clang zlib1g-dev`).
+11. **CI workflow** (`.github/workflows/ci.yml`) — enabled, because Actions minutes are free and
+    unlimited for public repositories (metered only on private ones), and a matrix is the only
+    practical way to cover Windows and macOS.
+    - Matrix `ubuntu-latest`, `windows-latest`, `macos-latest`; `actions/setup-dotnet` with
+      `9.0.x`; the Linux job installs the AOT prerequisites first
+      (`sudo apt-get install -y clang zlib1g-dev`).
+    - **No build logic in the YAML.** Every step is environment setup or
+      `bash build/verify.sh` / `pwsh build/verify.ps1`. This is what prevents drift between
+      "passes on my machine" and "passes in CI", and it keeps the project verifiable if the repo
+      ever goes private and minutes stop being free.
+    - Add the status badge to `README.md`.
 
-    Note on cost: GitHub Actions minutes are **free and unlimited for public repositories** and
-    are only metered on private ones, so for this repo as it stands the workflow is free. If the
-    repo ever goes private, or minutes are otherwise unavailable, delete or disable the workflow
-    — the local script remains the definition of "green".
-
-12. **Verify on Linux explicitly.** Run `build/verify.sh` on Linux, since it is a primary target
-    ([06-aot-and-dependencies](../06-aot-and-dependencies.md)). Cross-OS coverage is covered
-    under "manual cross-platform checks" in
-    [07-testing-strategy](../07-testing-strategy.md).
+12. **Verify on Linux explicitly.** Run `build/verify.sh` on Linux, since it is the primary
+    development target ([06-aot-and-dependencies](../06-aot-and-dependencies.md)); let the matrix
+    confirm Windows and macOS ([07-testing-strategy](../07-testing-strategy.md)).
 
 ## Acceptance criteria
 
@@ -137,10 +135,9 @@ rules), [08-licensing](../08-licensing.md) (headers and notices).
 - [ ] `dotnet test -c Release` runs and the single smoke test passes.
 - [ ] `dotnet publish src/MarkdownDotNetRenderer.Cli -c Release -r linux-x64 /p:PublishAot=true`
       succeeds on Linux and the resulting native binary runs and exits 0.
-- [ ] `build/verify.sh` runs all of the above end-to-end on Linux and prints `PASS`; the
-      `.ps1` equivalent does the same on Windows. Neither requires a hosted CI service.
-- [ ] The build + test sequence has been run manually on at least one non-Linux OS, or the
-      omission is recorded — whichever is true is written down rather than assumed.
+- [ ] `build/verify.sh` runs all of the above end-to-end on Linux and prints `PASS`, with no step
+      that exists only inside the CI workflow.
+- [ ] The CI matrix is green on all three OSes, each job having invoked that same script.
 - [ ] Solution layout matches [02-architecture](../02-architecture.md).
 - [ ] `Core` references only `Markdig`; `Cli` references only `Core`; `Tests` references `Core`
       plus test tooling.

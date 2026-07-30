@@ -83,9 +83,9 @@ raises `IL2xxx`/`IL3xxx` warnings that `TreatWarningsAsErrors` would turn into b
   type appears in any public API signature — the public surface exchanges
   `DocumentContent`/`Stream` only.
 - The HTML **and ODT** paths must remain fully AOT-clean, and this is verified, not assumed:
-  `build/verify.sh` publishes the CLI with `PublishAot` and runs the produced native binary
+  `build/verify` publishes the CLI with `PublishAot` and runs the produced native binary
   end-to-end on an HTML render and an ODT render. That step is the definition of "AOT-clean", and
-  it runs locally so it does not depend on a hosted CI service.
+  because it lives in the script it runs identically on a dev box and in CI.
 - Trim/AOT warnings originating from OpenXml are suppressed **narrowly**, at the DOCX writer
   file/member level (targeted `#pragma warning disable` or a scoped `NoWarn`), never
   solution-wide, and each suppression carries a comment explaining it.
@@ -129,14 +129,13 @@ What this requires:
   `dotnet/sdk` container images already include them). Cross-OS AOT publishing is not
   supported by the toolchain, so each RID is published on its own OS. Non-AOT `dotnet build`
   and `dotnet test` need no extra packages.
-- **Verification without hosted CI.** The build/test/AOT gate is the committed
-  `build/verify.{sh,ps1}` script, runnable on a developer machine
-  ([phase 0](phases/phase-0-scaffolding.md), [07-testing-strategy](07-testing-strategy.md)). A
-  GitHub Actions matrix (`ubuntu-latest`, `windows-latest`, `macos-latest`) is **optional** and
-  must do nothing but invoke that same script; Actions minutes are free and unlimited for public
-  repositories but metered on private ones, so the project must not depend on them. Multi-OS
-  coverage without a matrix is a recorded manual step, which is a further reason to keep
-  OS-dependent surface area at zero.
+- **One gate, two places to run it.** The build/test/AOT gate is the committed
+  `build/verify.{sh,ps1}` script ([phase 0](phases/phase-0-scaffolding.md),
+  [07-testing-strategy](07-testing-strategy.md)). A GitHub Actions matrix (`ubuntu-latest`,
+  `windows-latest`, `macos-latest`) runs that same script and nothing else — it is the practical
+  way to cover Windows and macOS, which cannot be virtualized from a Linux dev box. Because the
+  workflow holds no logic, the project stays fully verifiable by hand if Actions ever becomes
+  unavailable (minutes are free and unlimited for public repos, metered for private ones).
 
 Verification targets to record per phase, **on Linux**: the produced `.html` must open in
 Firefox/Chromium; the produced `.odt` ([phase 2](phases/phase-2-odf-output.md)) must open in

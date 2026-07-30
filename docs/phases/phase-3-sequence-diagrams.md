@@ -101,4 +101,5 @@ construction — no iteration, no heuristics.
 - [ ] Malformed sequence source falls back to the code block with `MERMAID002`; no exception.
 - [ ] Emitted SVG is well-formed XML and byte-identical across repeated renders and across
       Linux/macOS/Windows.
-- [ ] `build/verify.sh` prints `PASS`: warning-free build, green tests, AOT smoke test.
+- [ ] `build/verify` prints `PASS` on all three OSes: warning-free build, green tests, AOT smoke
+      test.

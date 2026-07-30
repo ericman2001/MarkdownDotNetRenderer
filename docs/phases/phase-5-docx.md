@@ -121,6 +121,6 @@ contents, cross-references, tracked changes, templates/`.dotx`.
       Whether the DOCX path works under AOT is explicitly tested and the result documented in
       [06-aot-and-dependencies](../06-aot-and-dependencies.md); if it does not, the CLI reports a
       clear error instead of crashing.
-- [ ] `build/verify.sh` prints `PASS` on Linux. If the AOT step fails because of
-      `DocumentFormat.OpenXml`, that is recorded here and the script keeps the HTML+ODT AOT smoke
+- [ ] `build/verify` prints `PASS` on all three OSes. If the AOT step fails because of
+      `DocumentFormat.OpenXml`, that is recorded here, and the script keeps the HTML+ODT AOT smoke
       test passing rather than being weakened.

@@ -154,14 +154,17 @@ input are byte-identical.
 - The **AOT smoke test** — `dotnet publish -r <rid> /p:PublishAot=true` for the CLI, then running
   the native binary to render a sample to HTML (and, from phase 2, to ODT), asserting exit code 0
   and a non-empty file. This is what actually enforces the AOT policy, and it lives in
-  `build/verify.{sh,ps1}` (see below), not in a hosted service.
+  `build/verify.{sh,ps1}` (see below), so it runs identically locally and in CI.
 
-## Running the suite: local first, CI optional
+## Running the suite: one script, run locally *and* in CI
 
-The project must be verifiable **without any hosted CI**, because CI availability is not a given
-(GitHub Actions minutes are free and unlimited on public repositories but metered on private
-ones). The authoritative gate is therefore a committed script, and any CI workflow is a thin
-wrapper that calls the same script so the two cannot drift.
+The suite runs in two places, but there is only ever **one definition of a passing build**: a
+committed script. CI is enabled and expected to run — GitHub Actions minutes are free and
+unlimited for public repositories, and this repository is public, so the three-OS matrix is worth
+having for the Windows/macOS coverage that is awkward to obtain locally. The workflow, however,
+does nothing but *invoke the script*, which buys two things: the two can never drift, and if
+Actions ever becomes unavailable (the repo goes private, minutes run out, the org changes plans)
+the project degrades to "run the script locally" rather than to "unverifiable".
 
 ```
 build/verify.sh      # bash;       set -euo pipefail
@@ -176,27 +179,29 @@ Each performs, failing fast and ending with one `PASS`/`FAIL` summary line:
 4. the AOT publish + native-binary render above (skippable with `--no-aot` when the local
    toolchain lacks `clang`/`zlib1g-dev`, and the skip is printed loudly rather than silently)
 
-**Definition of green:** `build/verify.sh` prints `PASS` on the contributor's machine. Every
-phase's acceptance criteria are discharged by that, not by a status badge. Deleting
-`.github/workflows/ci.yml` must not reduce coverage — if it would, the script is incomplete.
+**Definition of green:** the script prints `PASS`. Every phase's acceptance criteria are
+discharged by that — whether it was a contributor's terminal or an Actions runner that printed it.
+A reviewer with no CI access can reproduce the exact gate in one command.
 
-### Manual cross-platform checks
+### The CI matrix (enabled, and what it adds)
 
-Without a hosted matrix, multi-OS coverage is a deliberate manual step rather than something that
-happens invisibly. Mitigations, in order of preference:
+`.github/workflows/ci.yml` runs the script on `ubuntu-latest`, `windows-latest`, and
+`macos-latest`, with `actions/setup-dotnet` `9.0.x` and `sudo apt-get install -y clang zlib1g-dev`
+on the Linux job for the AOT step. What that genuinely adds over a local run is **Windows and
+macOS**, which cannot be virtualized from Linux; Docker
+(`mcr.microsoft.com/dotnet/sdk:9.0`) already covers a second Linux distro locally.
 
-- Keep OS-dependent surface area near zero by construction — `Path.Combine`, no case-insensitive
-  filesystem assumptions, `InvariantCulture` numerics, `\n` line endings, `.gitattributes`
-  normalization, and no installed-font dependency. Most cross-platform bugs are then impossible
-  rather than untested.
-- Run `build/verify.ps1` on a Windows machine, and `build/verify.sh` on macOS, before tagging a
-  release; record which OSes were actually exercised in the release notes. "Not verified on
-  macOS this release" is an acceptable, honest statement — silently implying it was verified is
-  not.
-- Docker (`mcr.microsoft.com/dotnet/sdk:9.0`) covers a second Linux distro locally at no cost.
-  Windows and macOS cannot be virtualized this way; they require real hardware or a CI runner.
-- If the repository is public, enabling the free Actions matrix is still the cheapest way to get
-  Windows/macOS coverage — the point is that the project does not *depend* on it.
+Two rules keep the workflow from becoming load-bearing in the wrong way:
+
+1. **No logic in YAML.** Every step is either environment setup or `bash build/verify.sh` /
+   `pwsh build/verify.ps1`. A build rule that exists only in the workflow is a bug.
+2. **Removing the workflow must not reduce what any single OS verifies** — only *how many* OSes
+   get verified automatically. If deleting it would lose a check, the script is incomplete.
+
+Cross-platform correctness is still pursued by construction rather than leaned on the matrix to
+catch: `Path.Combine`, no case-insensitive filesystem assumptions, `InvariantCulture` numerics,
+explicit `\n` line endings, `.gitattributes` normalization, and no installed-font dependency. The
+matrix is the safety net that proves this, not the mechanism that achieves it.
 
 ## Fixtures and conventions
 
