@@ -68,7 +68,56 @@ if [ ! -x "$BINARY" ]; then
 fi
 
 echo "==> Smoke run of native binary"
-# Phase 0: the binary only prints usage and must exit 0. Phase 1 extends this to a real render.
-"$BINARY"
+"$BINARY" --version >/dev/null
+
+SMOKE_DIR="$(mktemp -d)"
+trap 'rm -rf "$SMOKE_DIR"' EXIT
+SMOKE_HTML="$SMOKE_DIR/flowchart-demo.html"
+
+# A real render through the native binary: the AOT build must produce self-contained HTML with
+# inline SVG, not just start up.
+"$BINARY" --input samples/flowchart-demo.md --output "$SMOKE_HTML" --format html
+
+if [ ! -s "$SMOKE_HTML" ]; then
+  echo "Native smoke render produced no output at $SMOKE_HTML" >&2
+  fail
+fi
+
+for needle in '<!DOCTYPE html>' '<svg ' 'mermaid-figure'; do
+  if ! grep -qF -- "$needle" "$SMOKE_HTML"; then
+    echo "Smoke render is missing expected content: $needle" >&2
+    fail
+  fi
+done
+
+if grep -qiF -- '<script' "$SMOKE_HTML"; then
+  echo "Smoke render contains a <script> element; output must be script-free." >&2
+  fail
+fi
+
+# Every http(s) URL except the SVG namespace identifier would make the output non-self-contained.
+if grep -oiE 'https?://[^"'"'"' )]*' "$SMOKE_HTML" | grep -v '^http://www\.w3\.org/2000/svg$' | grep -q .; then
+  echo "Smoke render references external resources; output must be self-contained." >&2
+  fail
+fi
+
+# Formats whose writers have not shipped must fail loudly rather than write a broken file.
+# A non-zero exit is the expectation here, so the ERR trap has to stand down for one command.
+trap - ERR
+set +e
+"$BINARY" --input samples/flowchart-demo.md --output "$SMOKE_DIR/out.odt" --format odt \
+  >/dev/null 2>"$SMOKE_DIR/odt.err"
+ODT_STATUS=$?
+set -e
+trap fail ERR
+if [ "$ODT_STATUS" -eq 0 ]; then
+  echo "--format odt must fail until its writer ships." >&2
+  fail
+fi
+if ! grep -qF 'not implemented' "$SMOKE_DIR/odt.err"; then
+  echo "--format odt must explain that the writer is not implemented yet." >&2
+  cat "$SMOKE_DIR/odt.err" >&2
+  fail
+fi
 
 echo "PASS"
