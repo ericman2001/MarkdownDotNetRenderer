@@ -55,8 +55,8 @@ Target properties (set in `Directory.Build.props` / per-project, see
 ```
 
 `IsAotCompatible` on Core turns the AOT/trim analyzers into build errors (given
-`TreatWarningsAsErrors`), so an accidental reflection call fails CI rather than surfacing as a
-runtime crash in a published binary.
+`TreatWarningsAsErrors`), so an accidental reflection call fails the local build rather than
+surfacing as a runtime crash in a published binary.
 
 ### Rules for Core
 
@@ -82,9 +82,10 @@ raises `IL2xxx`/`IL3xxx` warnings that `TreatWarningsAsErrors` would turn into b
 - All OpenXml usage is confined to `Writers/DocxDocumentWriter.cs` and its helpers. No OpenXml
   type appears in any public API signature — the public surface exchanges
   `DocumentContent`/`Stream` only.
-- The HTML **and ODT** paths must remain fully AOT-clean, and this is verified, not assumed: a CI
-  job publishes the CLI with `PublishAot` and runs the produced native binary end-to-end on an
-  HTML render and an ODT render. That test is the definition of "AOT-clean".
+- The HTML **and ODT** paths must remain fully AOT-clean, and this is verified, not assumed:
+  `build/verify.sh` publishes the CLI with `PublishAot` and runs the produced native binary
+  end-to-end on an HTML render and an ODT render. That step is the definition of "AOT-clean", and
+  it runs locally so it does not depend on a hosted CI service.
 - Trim/AOT warnings originating from OpenXml are suppressed **narrowly**, at the DOCX writer
   file/member level (targeted `#pragma warning disable` or a scoped `NoWarn`), never
   solution-wide, and each suppression carries a comment explaining it.
@@ -104,7 +105,7 @@ primary "office document" path for AOT builds — and why it ships first.
 ## Cross-platform requirement
 
 **The library, CLI, and tests must build and run on Linux, macOS, and Windows.** All three are
-first-class; Linux is a primary development and CI target, not an afterthought.
+first-class; Linux is the primary development and verification target, not an afterthought.
 
 What this requires:
 
@@ -128,9 +129,14 @@ What this requires:
   `dotnet/sdk` container images already include them). Cross-OS AOT publishing is not
   supported by the toolchain, so each RID is published on its own OS. Non-AOT `dotnet build`
   and `dotnet test` need no extra packages.
-- **CI matrix.** `dotnet build` + `dotnet test` on `ubuntu-latest`, `windows-latest`, and
-  `macos-latest`; `dotnet publish -r <rid> /p:PublishAot=true` plus a smoke run of the native
-  binary on `linux-x64` and `win-x64` at minimum.
+- **Verification without hosted CI.** The build/test/AOT gate is the committed
+  `build/verify.{sh,ps1}` script, runnable on a developer machine
+  ([phase 0](phases/phase-0-scaffolding.md), [07-testing-strategy](07-testing-strategy.md)). A
+  GitHub Actions matrix (`ubuntu-latest`, `windows-latest`, `macos-latest`) is **optional** and
+  must do nothing but invoke that same script; Actions minutes are free and unlimited for public
+  repositories but metered on private ones, so the project must not depend on them. Multi-OS
+  coverage without a matrix is a recorded manual step, which is a further reason to keep
+  OS-dependent surface area at zero.
 
 Verification targets to record per phase, **on Linux**: the produced `.html` must open in
 Firefox/Chromium; the produced `.odt` ([phase 2](phases/phase-2-odf-output.md)) must open in

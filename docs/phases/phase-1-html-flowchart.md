@@ -139,8 +139,11 @@ deterministic, `TD` vs `LR`, guards), SVG structure and well-formedness, dispatc
 - [ ] Every emitted SVG parses as well-formed XML.
 - [ ] `--format odt` and `--format docx` each produce a clear "not implemented until phase 2/5"
       error and a non-zero exit code, not a crash or an empty file.
-- [ ] `dotnet build` is warning-free and `dotnet test` fully green on Linux, macOS, and Windows.
-- [ ] The AOT CI job publishes the CLI with `PublishAot=true` and the **native binary
+- [ ] `dotnet build` is warning-free and `dotnet test` fully green on Linux; the same run on
+      macOS/Windows is performed manually where a machine is available, and recorded either way.
+- [ ] `build/verify.sh` publishes the CLI with `PublishAot=true` and the **native binary
       successfully renders the sample to HTML** — this is the phase's proof that the HTML path is
       AOT-clean.
-- [ ] The golden-file test for `kitchen-sink.md` passes identically on all three OSes.
+- [ ] The golden-file test for `kitchen-sink.md` passes on Linux and, wherever it has been run,
+      produces byte-identical output on macOS/Windows (the `\n` + `.gitattributes` rules are what
+      make this hold without a hosted matrix).

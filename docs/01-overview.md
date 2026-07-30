@@ -19,9 +19,10 @@ MarkdownDotNetRenderer is a pure-C# renderer that turns GitHub-Flavored Markdown
 5. **AOT-friendly**: the HTML path must publish cleanly with `PublishAot` and no trim
    warnings.
 6. **Cross-platform**: the library, CLI, and test suite build and run on **Linux, macOS, and
-   Windows**. Linux is a primary development and CI target, not an afterthought — which rules
-   out Windows-only APIs and Office automation entirely
-   ([06-aot-and-dependencies](06-aot-and-dependencies.md)).
+   Windows**. Linux is the primary development and verification target, not an afterthought —
+   which rules out Windows-only APIs and Office automation entirely
+   ([06-aot-and-dependencies](06-aot-and-dependencies.md)). Verification is a local script, not a
+   hosted CI service ([07-testing-strategy](07-testing-strategy.md)).
 7. **An open-format office output first.** OpenDocument Text (`.odt`) is the first office format
    ([phase 2](phases/phase-2-odf-output.md)): it adds no dependency, is AOT-clean, carries SVG
    natively, and opens in LibreOffice/OpenOffice *and* in Word 2010+. DOCX follows

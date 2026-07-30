@@ -8,7 +8,7 @@ trivial to implement by hand as test doubles.
 ## Guiding principle: structural, not pixel
 
 We never compare rendered images, and we never assert exact coordinates. A layout tweak that
-moves a node 3 px must not turn CI red. Instead:
+moves a node 3 px must not fail the build. Instead:
 
 | Assertion style | Use for |
 | --- | --- |
@@ -151,10 +151,52 @@ input are byte-identical.
 - Cancellation: a pre-cancelled token yields `OperationCanceledException`.
 - Path/encoding tests use `Path.Combine` and a temp directory, with no case-insensitivity
   assumptions, so they pass on Linux.
-- CI runs the full suite on `ubuntu-latest`, `windows-latest`, and `macos-latest`, plus the
-  **AOT smoke test**: `dotnet publish -r <rid> /p:PublishAot=true` for the CLI and a run of the
-  native binary rendering a sample to HTML (and, from phase 2, to ODT), asserting exit code 0 and
-  a non-empty file. That job is what actually enforces the AOT policy.
+- The **AOT smoke test** — `dotnet publish -r <rid> /p:PublishAot=true` for the CLI, then running
+  the native binary to render a sample to HTML (and, from phase 2, to ODT), asserting exit code 0
+  and a non-empty file. This is what actually enforces the AOT policy, and it lives in
+  `build/verify.{sh,ps1}` (see below), not in a hosted service.
+
+## Running the suite: local first, CI optional
+
+The project must be verifiable **without any hosted CI**, because CI availability is not a given
+(GitHub Actions minutes are free and unlimited on public repositories but metered on private
+ones). The authoritative gate is therefore a committed script, and any CI workflow is a thin
+wrapper that calls the same script so the two cannot drift.
+
+```
+build/verify.sh      # bash;       set -euo pipefail
+build/verify.ps1     # PowerShell; $ErrorActionPreference = 'Stop'
+```
+
+Each performs, failing fast and ending with one `PASS`/`FAIL` summary line:
+
+1. `dotnet restore`
+2. `dotnet build -c Release` — zero warnings, since `TreatWarningsAsErrors` is on
+3. `dotnet test -c Release --logger trx`
+4. the AOT publish + native-binary render above (skippable with `--no-aot` when the local
+   toolchain lacks `clang`/`zlib1g-dev`, and the skip is printed loudly rather than silently)
+
+**Definition of green:** `build/verify.sh` prints `PASS` on the contributor's machine. Every
+phase's acceptance criteria are discharged by that, not by a status badge. Deleting
+`.github/workflows/ci.yml` must not reduce coverage — if it would, the script is incomplete.
+
+### Manual cross-platform checks
+
+Without a hosted matrix, multi-OS coverage is a deliberate manual step rather than something that
+happens invisibly. Mitigations, in order of preference:
+
+- Keep OS-dependent surface area near zero by construction — `Path.Combine`, no case-insensitive
+  filesystem assumptions, `InvariantCulture` numerics, `\n` line endings, `.gitattributes`
+  normalization, and no installed-font dependency. Most cross-platform bugs are then impossible
+  rather than untested.
+- Run `build/verify.ps1` on a Windows machine, and `build/verify.sh` on macOS, before tagging a
+  release; record which OSes were actually exercised in the release notes. "Not verified on
+  macOS this release" is an acceptable, honest statement — silently implying it was verified is
+  not.
+- Docker (`mcr.microsoft.com/dotnet/sdk:9.0`) covers a second Linux distro locally at no cost.
+  Windows and macOS cannot be virtualized this way; they require real hardware or a CI runner.
+- If the repository is public, enabling the free Actions matrix is still the cheapest way to get
+  Windows/macOS coverage — the point is that the project does not *depend* on it.
 
 ## Fixtures and conventions
 

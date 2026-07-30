@@ -99,8 +99,14 @@ tests/
   MarkdownDotNetRenderer.Tests/
     MarkdownDotNetRenderer.Tests.csproj
     ...
+build/
+  verify.sh                    // authoritative build/test/AOT gate (bash)
+  verify.ps1                   // same gate on Windows (PowerShell)
 docs/
 ```
+
+`build/verify.{sh,ps1}` is the definition of a green build; a `.github/workflows/ci.yml` is
+optional and must only invoke it ([07-testing-strategy](07-testing-strategy.md)).
 
 `Directory.Build.props` holds the shared `net9.0`, `LangVersion latest`,
 `Nullable enable`, `TreatWarningsAsErrors`, and AOT/trim properties so the three project

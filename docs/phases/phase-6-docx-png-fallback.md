@@ -90,4 +90,6 @@ Prefer these before accepting a rasterizer. They may make this phase unnecessary
 - [ ] The rasterizer decision, license, native-asset story, and AOT impact are recorded in
       [06-aot-and-dependencies](../06-aot-and-dependencies.md).
 - [ ] No GPL/AGPL-licensed rasterizer is used ([08-licensing](../08-licensing.md)).
-- [ ] Tests green and build warning-free on Linux, macOS, and Windows.
+- [ ] `build/verify.sh` prints `PASS` on Linux, and the same script is run manually on Windows
+      (`build/verify.ps1`) — a native rasterizer makes per-OS verification unavoidable, which is
+      itself an argument against adopting one.
