@@ -1,0 +1,10 @@
+* text=auto
+*.md   text eol=lf
+*.cs   text eol=lf
+*.html text eol=lf
+*.svg  text eol=lf
+*.docx binary
+*.odt  binary
+
+# Keep the build gate's line endings LF so it runs under bash on every platform.
+build/verify.sh text eol=lf

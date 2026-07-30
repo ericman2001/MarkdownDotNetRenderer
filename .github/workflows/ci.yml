@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    name: verify (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      # AOT prerequisites for the native publish. Linux only; Windows and macOS ship a toolchain
+      # that Native AOT uses out of the box on the GitHub-hosted runners.
+      - name: Install AOT prerequisites (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      # The workflow contains no build logic of its own: it only invokes the committed gate.
+      - name: Run build gate (Linux/macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: bash build/verify.sh
+
+      - name: Run build gate (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: pwsh build/verify.ps1

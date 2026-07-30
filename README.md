@@ -1,13 +1,16 @@
 # MarkdownDotNetRenderer
 
+[![CI](https://github.com/ericman2001/MarkdownDotNetRenderer/actions/workflows/ci.yml/badge.svg)](https://github.com/ericman2001/MarkdownDotNetRenderer/actions/workflows/ci.yml)
+
 A **pure C#** renderer that turns GitHub-Flavored Markdown — including embedded
 [Mermaid](https://mermaid.js.org/) diagrams — into **self-contained HTML** and office documents
 (**ODT**, then **DOCX**) you can hand to anyone, with **no JavaScript anywhere in the rendering
 path**.
 
-> **Status: design phase.** This repository currently contains design and phased
-> implementation documents only — no source code yet. Implementation begins with
-> [phase 0](docs/phases/phase-0-scaffolding.md). Start with
+> **Status: phase 0 (scaffolding) complete.** The buildable, testable skeleton is in place —
+> solution, three projects, shared build props, the `build/verify.{sh,ps1}` gate, and the
+> three-OS CI matrix. No rendering logic yet; that begins in
+> [phase 1](docs/phases/phase-1-html-flowchart.md). Start with
 > [docs/01-overview.md](docs/01-overview.md).
 
 ## Why
@@ -53,8 +56,11 @@ There is exactly one definition of a passing build: a committed script that runs
 
 ```bash
 build/verify.sh            # Linux/macOS; --no-aot to skip the native publish
-pwsh build/verify.ps1      # Windows
+pwsh build/verify.ps1      # Windows; -NoAot to skip the native publish
 ```
+
+**Run `build/verify.sh` (or `build/verify.ps1`) before pushing.** It is the single definition of
+a green build; if it prints `PASS` locally, CI should too.
 
 CI runs that same script on `ubuntu-latest`, `windows-latest`, and `macos-latest` — the workflow
 contains no build logic of its own, so "passes on my machine" and "passes in CI" cannot diverge,
