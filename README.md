@@ -132,6 +132,7 @@ dotnet run --project src/MarkdownDotNetRenderer.Cli -- \
 | [06 — Dependencies, AOT & cross-platform](docs/06-aot-and-dependencies.md) | Dependency budget and licenses, AOT/trim policy and risks, Linux/macOS/Windows requirements |
 | [07 — Testing strategy](docs/07-testing-strategy.md) | xUnit approach: structural, invariant, and golden-file assertions — never pixel comparisons; the `build/verify` gate and the three-OS matrix |
 | [08 — Licensing](docs/08-licensing.md) | LGPLv3 rationale, what it means for consumers, dependency-license compatibility |
+| [09 — Maintainability conventions](docs/09-conventions.md) | Where values live: injectable styling records, embedded CSS/markup resources, centralized spec constants, `RenderOptions` |
 
 ### Phased implementation
 

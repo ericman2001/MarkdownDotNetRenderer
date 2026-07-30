@@ -14,6 +14,7 @@
 // with this library; see the file LICENSE.LESSER. If not, see
 // <https://www.gnu.org/licenses/>.
 
+using System.Reflection;
 using System.Text;
 using Markdig;
 using Markdig.Renderers;
@@ -33,6 +34,10 @@ public sealed class HtmlDocumentWriter : IDocumentWriter
 {
     private const string Newline = "\n";
     private const string DefaultTitle = "Document";
+    private const string DefaultCssResourceName = "MarkdownDotNetRenderer.Writers.default.css";
+    private const string FontFamilyToken = "__FONT_FAMILY__";
+
+    private static readonly string DefaultCssTemplate = LoadDefaultCssTemplate();
 
     private readonly MarkdownPipeline _pipeline;
 
@@ -57,34 +62,45 @@ public sealed class HtmlDocumentWriter : IDocumentWriter
     public string ContentType => "text/html; charset=utf-8";
 
     /// <summary>The built-in minimal stylesheet, emitted when <see cref="RenderOptions.IncludeDefaultCss"/> is set.</summary>
+    /// <remarks>
+    /// The rules live in the <c>Writers/default.css</c> embedded resource, compiled into this
+    /// assembly at build time. Nothing is read from disk or the network at runtime, so output stays
+    /// self-contained; the CSS text is still emitted inline inside the document's
+    /// <c>&lt;style&gt;</c> element.
+    /// </remarks>
     /// <param name="fontFamily">Body font stack, from the render options.</param>
     /// <returns>CSS text without a wrapping <c>&lt;style&gt;</c> element.</returns>
     public static string BuildDefaultCss(string fontFamily)
     {
         ArgumentNullException.ThrowIfNull(fontFamily);
 
-        string font = HtmlEscape(fontFamily);
-        return string.Join(Newline,
-            ":root { color-scheme: light dark; }",
-            $"body {{ margin: 0; padding: 2rem 1rem; font-family: {font}; line-height: 1.55; color: #111827; background: #ffffff; }}",
-            ".markdown-body { max-width: 46rem; margin: 0 auto; }",
-            ".markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4, .markdown-body h5, .markdown-body h6 { line-height: 1.25; margin: 1.6em 0 0.6em; }",
-            ".markdown-body h1 { font-size: 1.9rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3em; }",
-            ".markdown-body h2 { font-size: 1.5rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3em; }",
-            ".markdown-body p { margin: 0 0 1em; }",
-            ".markdown-body a { color: #1d4ed8; }",
-            ".markdown-body code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9em; background: #f3f4f6; padding: 0.15em 0.35em; border-radius: 3px; }",
-            ".markdown-body pre { background: #f3f4f6; padding: 0.9em 1em; border-radius: 6px; overflow-x: auto; }",
-            ".markdown-body pre code { background: none; padding: 0; }",
-            ".markdown-body blockquote { margin: 0 0 1em; padding: 0.2em 1em; border-left: 4px solid #d1d5db; color: #374151; }",
-            ".markdown-body table { border-collapse: collapse; margin: 0 0 1em; display: block; overflow-x: auto; }",
-            ".markdown-body th, .markdown-body td { border: 1px solid #d1d5db; padding: 0.4em 0.7em; }",
-            ".markdown-body th { background: #f3f4f6; text-align: left; }",
-            ".markdown-body hr { border: none; border-top: 1px solid #e5e7eb; margin: 2em 0; }",
-            ".markdown-body ul.contains-task-list { list-style: none; padding-left: 1.2em; }",
-            ".markdown-body img { max-width: 100%; }",
-            ".mermaid-figure { margin: 1.5em 0; text-align: center; }",
-            ".mermaid-figure svg { max-width: 100%; height: auto; }");
+        return DefaultCssTemplate.Replace(
+            FontFamilyToken,
+            HtmlEscape(fontFamily),
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Reads the embedded stylesheet once, normalising to <c>\n</c> line endings without a trailing
+    /// newline so the emitted document is byte-identical regardless of how the file was checked out.
+    /// </summary>
+    private static string LoadDefaultCssTemplate()
+    {
+        Assembly assembly = typeof(HtmlDocumentWriter).Assembly;
+        using Stream? stream = assembly.GetManifestResourceStream(DefaultCssResourceName);
+        if (stream is null)
+        {
+            throw new InvalidOperationException(
+                $"The embedded stylesheet '{DefaultCssResourceName}' is missing from " +
+                $"'{assembly.GetName().Name}'.");
+        }
+
+        using var reader = new StreamReader(stream, Encoding.UTF8);
+        string css = reader.ReadToEnd();
+        return string.Join(
+            Newline,
+            css.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Select(line => line.TrimEnd('\r')));
     }
 
     /// <inheritdoc />
