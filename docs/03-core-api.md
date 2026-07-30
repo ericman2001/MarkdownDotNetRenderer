@@ -50,6 +50,14 @@ public sealed class RenderOptions
 `RenderOptions` is deliberately small. Theming knobs beyond the above are a non-goal
 (see [01-overview](01-overview.md)).
 
+That non-goal is unchanged by `DiagramTheme`
+(see [04-mermaid-engine](04-mermaid-engine.md#styling-and-geometry-diagramtheme)), which
+centralises diagram colours, stroke widths, and box geometry that used to be inline `const`
+fields inside `FlowchartRenderer`. It is a maintainability construct, injected into a renderer
+the same way `LayoutMetrics` is; `RenderOptions` does **not** surface it, and adding a knob to
+`DiagramTheme` does not add one to the public render surface. Only values genuinely meant as
+user-facing render defaults belong in `RenderOptions`.
+
 ## The renderer
 
 ```csharp

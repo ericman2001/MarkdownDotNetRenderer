@@ -132,6 +132,54 @@ Rules:
 - `role="img"` plus `aria-label` for accessibility; `AltText` is derived from the diagram
   type and node count (e.g. "flowchart with 6 nodes and 7 edges").
 
+### Styling and geometry: `DiagramTheme`
+
+Visual values are **not** inline `private const` fields on a renderer. They live in
+`DiagramTheme` (`Mermaid/Flowchart/DiagramTheme.cs`), a `sealed record` with defaulted
+parameters and a `DiagramTheme.Default` singleton — deliberately the same shape as
+`LayoutMetrics`, so the two form a pair: `LayoutMetrics` tunes *where the graph goes*,
+`DiagramTheme` tunes *how it is painted*.
+
+```csharp
+public sealed record DiagramTheme(
+    string NodeFill = "#ffffff",
+    string NodeStroke = "#33415a",
+    string EdgeStroke = "#55637a",
+    string TextFill = "#111827",
+    double NodeStrokeWidth = 1.5,
+    double EdgeStrokeWidth = 1.5,
+    double CornerRadius = 6,      // rounding at edge-polyline bends
+    double ArrowInset = 2,        // how far a directed edge stops short of its target
+    int LabelWrapChars = 22,      // soft wrap width for node labels
+    double HorizontalPadding = 24,
+    double VerticalPadding = 16,
+    double MinNodeWidth = 56,
+    double MinNodeHeight = 34,
+    double SelfLoopBulge = 28,
+    double SelfLoopLabelGap = 6)
+{
+    public static DiagramTheme Default { get; } = new();
+}
+```
+
+It is injected exactly like `LayoutMetrics`:
+
+```csharp
+new FlowchartRenderer();                                 // Default metrics + Default theme
+new FlowchartRenderer(metrics);                          // Default theme
+new FlowchartRenderer(metrics, theme);                   // both explicit
+FlowchartRenderer.MeasureNodes(model, fontSize, theme);  // theme optional, defaults to Default
+```
+
+Because emitters read the injected instance, the emit helpers that need styling are instance
+methods rather than `static`. `MeasureNodes` stays `static` with an optional theme parameter,
+since box sizing is a pure function of model + font size + theme.
+
+**Convention:** any new diagram styling or box-geometry value goes in `DiagramTheme` (or an
+analogous record for a future diagram type), never as an inline `private const` in a renderer.
+The defaults in the record are the documented defaults; changing them changes rendered output,
+so they are covered by the SVG structural tests.
+
 ### Text metrics without a graphics stack
 
 Node sizing needs text width, and we have no font rasterizer (adding one would break AOT —
@@ -139,8 +187,8 @@ see [06-aot-and-dependencies](06-aot-and-dependencies.md)). `TextMetrics` theref
 *estimates*: a static per-character advance-width table for a representative sans-serif at
 1 em (wide for `M W m @`, narrow for `i l . ' `), summed and scaled by font size, with a
 conservative multiplier. Estimation error is acceptable because the fidelity target is
-"readable, not pixel-perfect", and padding absorbs the error. Labels longer than a
-configured character budget wrap at word boundaries into multiple `tspan` lines.
+"readable, not pixel-perfect", and padding absorbs the error. Labels longer than
+`DiagramTheme.LabelWrapChars` wrap at word boundaries into multiple `tspan` lines.
 
 ## Phase 1: flowcharts
 

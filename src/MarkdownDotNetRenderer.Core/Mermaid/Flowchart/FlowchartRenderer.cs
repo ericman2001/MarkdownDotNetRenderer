@@ -28,25 +28,10 @@ namespace MarkdownDotNetRenderer.Mermaid.Flowchart;
 /// </summary>
 public sealed class FlowchartRenderer : IDiagramRenderer
 {
-    private const string NodeFill = "#ffffff";
-    private const string NodeStroke = "#33415a";
-    private const string EdgeStroke = "#55637a";
-    private const string TextFill = "#111827";
-    private const double NodeStrokeWidth = 1.5;
-    private const double EdgeStrokeWidth = 1.5;
-    private const double CornerRadius = 6;
-    private const double ArrowInset = 2;
-    private const int LabelWrapChars = 22;
-    private const double HorizontalPadding = 24;
-    private const double VerticalPadding = 16;
-    private const double MinNodeWidth = 56;
-    private const double MinNodeHeight = 34;
-    private const double SelfLoopBulge = 28;
-    private const double SelfLoopLabelGap = 6;
-
     private readonly LayoutMetrics _metrics;
+    private readonly DiagramTheme _theme;
 
-    /// <summary>Creates a renderer with the default layout geometry.</summary>
+    /// <summary>Creates a renderer with the default layout geometry and theme.</summary>
     public FlowchartRenderer()
         : this(LayoutMetrics.Default)
     {
@@ -55,9 +40,19 @@ public sealed class FlowchartRenderer : IDiagramRenderer
     /// <summary>Creates a renderer with explicit layout geometry and guards.</summary>
     /// <param name="metrics">Geometry and guards to use.</param>
     public FlowchartRenderer(LayoutMetrics metrics)
+        : this(metrics, DiagramTheme.Default)
+    {
+    }
+
+    /// <summary>Creates a renderer with explicit layout geometry and visual theme.</summary>
+    /// <param name="metrics">Geometry and guards to use.</param>
+    /// <param name="theme">Colours, stroke widths, and box geometry to use.</param>
+    public FlowchartRenderer(LayoutMetrics metrics, DiagramTheme theme)
     {
         ArgumentNullException.ThrowIfNull(metrics);
+        ArgumentNullException.ThrowIfNull(theme);
         _metrics = metrics;
+        _theme = theme;
     }
 
     /// <inheritdoc />
@@ -91,7 +86,7 @@ public sealed class FlowchartRenderer : IDiagramRenderer
 
         FlowchartModel model = parsed.Model;
         double fontSize = options.DiagramFontSize <= 0 ? 12 : options.DiagramFontSize;
-        Dictionary<string, NodeSize> sizes = MeasureNodes(model, fontSize);
+        Dictionary<string, NodeSize> sizes = MeasureNodes(model, fontSize, _theme);
 
         LayoutResult layout = LayeredLayout.Compute(model, sizes, _metrics);
         if (!layout.Success || layout.Layout is null)
@@ -123,25 +118,31 @@ public sealed class FlowchartRenderer : IDiagramRenderer
     /// <summary>Estimates each node's box size from its wrapped label.</summary>
     /// <param name="model">The parsed model.</param>
     /// <param name="fontSize">Label font size in CSS pixels.</param>
+    /// <param name="theme">Padding, minimum box size, and label wrapping; defaults to
+    /// <see cref="DiagramTheme.Default"/>.</param>
     /// <returns>Box sizes keyed by node id.</returns>
-    public static Dictionary<string, NodeSize> MeasureNodes(FlowchartModel model, double fontSize)
+    public static Dictionary<string, NodeSize> MeasureNodes(
+        FlowchartModel model,
+        double fontSize,
+        DiagramTheme? theme = null)
     {
         ArgumentNullException.ThrowIfNull(model);
+        theme ??= DiagramTheme.Default;
 
         var sizes = new Dictionary<string, NodeSize>(StringComparer.Ordinal);
         foreach (FlowNode node in model.Nodes)
         {
-            IReadOnlyList<string> lines = TextMetrics.WrapLabel(node.Label, LabelWrapChars);
+            IReadOnlyList<string> lines = TextMetrics.WrapLabel(node.Label, theme.LabelWrapChars);
             double textWidth = 0;
             foreach (string line in lines)
             {
                 textWidth = Math.Max(textWidth, TextMetrics.MeasureWidth(line, fontSize));
             }
 
-            double width = Math.Max(MinNodeWidth, textWidth + HorizontalPadding);
+            double width = Math.Max(theme.MinNodeWidth, textWidth + theme.HorizontalPadding);
             double height = Math.Max(
-                MinNodeHeight,
-                (lines.Count * TextMetrics.LineHeight(fontSize)) + VerticalPadding);
+                theme.MinNodeHeight,
+                (lines.Count * TextMetrics.LineHeight(fontSize)) + theme.VerticalPadding);
 
             switch (node.Shape)
             {
@@ -168,7 +169,7 @@ public sealed class FlowchartRenderer : IDiagramRenderer
     /// <summary>
     /// The rightmost x any self-loop curve or self-loop label reaches, or 0 without self-loops.
     /// </summary>
-    private static double SelfLoopContentRight(FlowchartLayout layout, double fontSize)
+    private double SelfLoopContentRight(FlowchartLayout layout, double fontSize)
     {
         double right = 0;
         foreach (LayoutEdge edge in layout.Edges)
@@ -212,16 +213,16 @@ public sealed class FlowchartRenderer : IDiagramRenderer
     /// The rightmost x of a self-loop curve. Both control points sit at <c>bulge</c> past the node,
     /// and a cubic with equal control x reaches three quarters of that offset at its midpoint.
     /// </summary>
-    private static double SelfLoopRight(LayoutNode source) =>
-        source.Left + source.Width + (SelfLoopBulge * 0.75);
+    private double SelfLoopRight(LayoutNode source) =>
+        source.Left + source.Width + (_theme.SelfLoopBulge * 0.75);
 
-    private static double SelfLoopLabelAnchorX(LayoutNode source, double labelBoxWidth) =>
-        SelfLoopRight(source) + SelfLoopLabelGap + (labelBoxWidth / 2);
+    private double SelfLoopLabelAnchorX(LayoutNode source, double labelBoxWidth) =>
+        SelfLoopRight(source) + _theme.SelfLoopLabelGap + (labelBoxWidth / 2);
 
     private static double LabelBoxWidth(string label, double fontSize) =>
         TextMetrics.MeasureWidth(label, fontSize) + 8;
 
-    private static string Emit(
+    private string Emit(
         FlowchartLayout layout,
         FlowchartModel model,
         RenderOptions options,
@@ -296,7 +297,7 @@ public sealed class FlowchartRenderer : IDiagramRenderer
         return svg.ToString();
     }
 
-    private static void EmitDefs(SvgBuilder svg, string arrowId)
+    private void EmitDefs(SvgBuilder svg, string arrowId)
     {
         svg.StartElement("defs");
         svg.StartElement("marker")
@@ -309,13 +310,13 @@ public sealed class FlowchartRenderer : IDiagramRenderer
             .Attribute("orient", "auto-start-reverse");
         svg.StartElement("path")
             .Attribute("d", "M 0 0 L 10 5 L 0 10 z")
-            .Attribute("fill", EdgeStroke)
+            .Attribute("fill", _theme.EdgeStroke)
             .EndElement();
         svg.EndElement();
         svg.EndElement();
     }
 
-    private static void EmitNode(
+    private void EmitNode(
         SvgBuilder svg,
         FlowNode node,
         LayoutNode placed,
@@ -336,9 +337,9 @@ public sealed class FlowchartRenderer : IDiagramRenderer
                         Point(placed.Left + placed.Width, placed.CenterY),
                         Point(placed.CenterX, placed.Top + placed.Height),
                         Point(placed.Left, placed.CenterY)))
-                    .Attribute("fill", NodeFill)
-                    .Attribute("stroke", NodeStroke)
-                    .Attribute("stroke-width", NodeStrokeWidth)
+                    .Attribute("fill", _theme.NodeFill)
+                    .Attribute("stroke", _theme.NodeStroke)
+                    .Attribute("stroke-width", _theme.NodeStrokeWidth)
                     .EndElement();
                 break;
 
@@ -360,18 +361,25 @@ public sealed class FlowchartRenderer : IDiagramRenderer
                     .Attribute("height", placed.Height)
                     .Attribute("rx", radius)
                     .Attribute("ry", radius)
-                    .Attribute("fill", NodeFill)
-                    .Attribute("stroke", NodeStroke)
-                    .Attribute("stroke-width", NodeStrokeWidth)
+                    .Attribute("fill", _theme.NodeFill)
+                    .Attribute("stroke", _theme.NodeStroke)
+                    .Attribute("stroke-width", _theme.NodeStrokeWidth)
                     .EndElement();
                 break;
         }
 
-        EmitLabel(svg, node.Label, placed.CenterX, placed.CenterY, options, fontSize, TextFill);
+        EmitLabel(
+            svg,
+            node.Label,
+            placed.CenterX,
+            placed.CenterY,
+            options,
+            fontSize,
+            _theme.TextFill);
         svg.EndElement();
     }
 
-    private static void EmitLabel(
+    private void EmitLabel(
         SvgBuilder svg,
         string label,
         double centerX,
@@ -380,7 +388,7 @@ public sealed class FlowchartRenderer : IDiagramRenderer
         double fontSize,
         string fill)
     {
-        IReadOnlyList<string> lines = TextMetrics.WrapLabel(label, LabelWrapChars);
+        IReadOnlyList<string> lines = TextMetrics.WrapLabel(label, _theme.LabelWrapChars);
         double lineHeight = TextMetrics.LineHeight(fontSize);
 
         svg.StartElement("text")
@@ -405,7 +413,7 @@ public sealed class FlowchartRenderer : IDiagramRenderer
         svg.EndElement();
     }
 
-    private static void EmitEdge(
+    private void EmitEdge(
         SvgBuilder svg,
         LayoutEdge edge,
         Dictionary<string, LayoutNode> nodesById,
@@ -429,7 +437,7 @@ public sealed class FlowchartRenderer : IDiagramRenderer
             double loopX = source.Left + source.Width;
             double loopStartY = source.CenterY - (source.Height / 4);
             double loopEndY = source.CenterY + (source.Height / 4);
-            double controlX = loopX + SelfLoopBulge;
+            double controlX = loopX + _theme.SelfLoopBulge;
             string path =
                 $"M {SvgBuilder.Number(loopX)} {SvgBuilder.Number(loopStartY)} " +
                 $"C {SvgBuilder.Number(controlX)} {SvgBuilder.Number(loopStartY)} " +
@@ -449,8 +457,8 @@ public sealed class FlowchartRenderer : IDiagramRenderer
                 .Attribute("y1", points[0].Y)
                 .Attribute("x2", points[1].X)
                 .Attribute("y2", points[1].Y)
-                .Attribute("stroke", EdgeStroke)
-                .Attribute("stroke-width", EdgeStrokeWidth)
+                .Attribute("stroke", _theme.EdgeStroke)
+                .Attribute("stroke-width", _theme.EdgeStrokeWidth)
                 .Attribute("fill", "none");
             if (edge.Edge.Directed)
             {
@@ -467,12 +475,12 @@ public sealed class FlowchartRenderer : IDiagramRenderer
         svg.EndElement();
     }
 
-    private static void EmitEdgeGeometry(SvgBuilder svg, string path, bool directed, string arrowId)
+    private void EmitEdgeGeometry(SvgBuilder svg, string path, bool directed, string arrowId)
     {
         svg.StartElement("path")
             .Attribute("d", path)
-            .Attribute("stroke", EdgeStroke)
-            .Attribute("stroke-width", EdgeStrokeWidth)
+            .Attribute("stroke", _theme.EdgeStroke)
+            .Attribute("stroke-width", _theme.EdgeStrokeWidth)
             .Attribute("fill", "none");
         if (directed)
         {
@@ -482,7 +490,7 @@ public sealed class FlowchartRenderer : IDiagramRenderer
         svg.EndElement();
     }
 
-    private static void EmitEdgeLabel(
+    private void EmitEdgeLabel(
         SvgBuilder svg,
         LayoutEdge edge,
         Dictionary<string, LayoutNode> nodesById,
@@ -516,7 +524,7 @@ public sealed class FlowchartRenderer : IDiagramRenderer
             .Attribute("height", boxHeight)
             .Attribute("rx", 3.0)
             .Attribute("ry", 3.0)
-            .Attribute("fill", NodeFill)
+            .Attribute("fill", _theme.NodeFill)
             .Attribute("stroke", "none")
             .EndElement();
 
@@ -527,7 +535,7 @@ public sealed class FlowchartRenderer : IDiagramRenderer
             .Attribute("dominant-baseline", "middle")
             .Attribute("font-family", options.FontFamily)
             .Attribute("font-size", fontSize)
-            .Attribute("fill", TextFill)
+            .Attribute("fill", _theme.TextFill)
             .Text(edge.Edge.Label)
             .EndElement();
 
@@ -535,7 +543,7 @@ public sealed class FlowchartRenderer : IDiagramRenderer
     }
 
     /// <summary>Clips an edge's centre-to-centre route to the two shapes it connects.</summary>
-    private static List<LayoutPoint> Route(LayoutEdge edge, LayoutNode source, LayoutNode target)
+    private List<LayoutPoint> Route(LayoutEdge edge, LayoutNode source, LayoutNode target)
     {
         var points = new List<LayoutPoint>(edge.Points);
         points[0] = ClipToShape(source, points[1]);
@@ -543,7 +551,7 @@ public sealed class FlowchartRenderer : IDiagramRenderer
         LayoutPoint endpoint = ClipToShape(target, lastInner);
         if (edge.Edge.Directed)
         {
-            endpoint = PullBack(endpoint, lastInner, ArrowInset);
+            endpoint = PullBack(endpoint, lastInner, _theme.ArrowInset);
         }
 
         points[^1] = endpoint;
@@ -567,7 +575,7 @@ public sealed class FlowchartRenderer : IDiagramRenderer
         return points[points.Count / 2];
     }
 
-    private static string BuildPath(IReadOnlyList<LayoutPoint> points)
+    private string BuildPath(IReadOnlyList<LayoutPoint> points)
     {
         var path = new StringBuilder();
         path.Append("M ").Append(SvgBuilder.Number(points[0].X)).Append(' ')
@@ -579,8 +587,8 @@ public sealed class FlowchartRenderer : IDiagramRenderer
             LayoutPoint current = points[i];
             LayoutPoint next = points[i + 1];
 
-            LayoutPoint approach = Along(current, previous, CornerRadius);
-            LayoutPoint leave = Along(current, next, CornerRadius);
+            LayoutPoint approach = Along(current, previous, _theme.CornerRadius);
+            LayoutPoint leave = Along(current, next, _theme.CornerRadius);
 
             path.Append(" L ").Append(SvgBuilder.Number(approach.X)).Append(' ')
                 .Append(SvgBuilder.Number(approach.Y));

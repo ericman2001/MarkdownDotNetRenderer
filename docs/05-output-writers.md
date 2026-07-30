@@ -60,12 +60,33 @@ One file, no external requests, no scripts:
 
 ### Minimal built-in CSS
 
-Roughly 40 lines, inline in `<style>`, covering: a readable max-width body column, system
+Roughly 20 rules, inline in `<style>`, covering: a readable max-width body column, system
 font stack from `RenderOptions.FontFamily`, heading spacing, `code`/`pre` monospace and
 background, GFM table borders and header shading, blockquote left border, task-list bullet
 suppression, and the diagram figure rule above. No resets, no frameworks, no web fonts, no
 `@import` (an `@import` would make the file non-self-contained). `IncludeDefaultCss = false`
 plus `AdditionalCss` gives full control to a consumer who wants their own look.
+
+The rules themselves live in `src/MarkdownDotNetRenderer.Core/Writers/default.css`, registered
+as an `<EmbeddedResource>` in the Core `.csproj` and therefore **compiled into the assembly**.
+`HtmlDocumentWriter.BuildDefaultCss(fontFamily)` reads that resource once via
+`Assembly.GetManifestResourceStream`, normalises it to `\n` line endings with no trailing
+newline, and substitutes the `__FONT_FAMILY__` placeholder with `HtmlEscape(fontFamily)`. Its
+signature and contract are unchanged: it returns CSS text *without* a wrapping `<style>`
+element.
+
+This is purely a build-time editability improvement and changes nothing about the runtime
+contract:
+
+- The CSS is an assembly resource, **not** a runtime-loaded external config file. Nothing is
+  read from disk or the network while rendering, and there is no way for a deployment to
+  swap it.
+- The text is still emitted inline inside the document's `<style>` block, so output stays
+  self-contained and byte-identical (same rule order, same `\n` joining).
+- `@import`, `url(http…)`, and any other external reference remain forbidden inside the file.
+
+**Convention:** edit the stylesheet in `default.css`, never by reintroducing inline C# string
+literals.
 
 ### Non-negotiables
 
