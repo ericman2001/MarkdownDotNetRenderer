@@ -178,6 +178,64 @@ public sealed class OdtDocumentWriterTests
     }
 
     [Fact]
+    public async Task Ordered_List_Keeps_Its_Authored_Start_Value()
+    {
+        var document = await OdtPackage.RenderAsync(() => Task.FromResult(
+            "5. Five\n6. Six\n\nSeparator.\n\n1. One\n"));
+
+        List<XElement> lists = document.Body().Elements(Text + "list").ToList();
+        Assert.Equal(2, lists.Count);
+
+        XElement firstItem = lists[0].Elements(Text + "list-item").First();
+        Assert.Equal("5", firstItem.Attribute(Text + "start-value")!.Value);
+
+        // A list starting at 1 is what ODF assumes, so nothing is written.
+        Assert.Null(lists[1]
+            .Elements(Text + "list-item")
+            .First()
+            .Attribute(Text + "start-value"));
+    }
+
+    [Fact]
+    public async Task A_List_Inside_A_Block_Quote_Keeps_The_Quotation_Style()
+    {
+        var document = await OdtPackage.RenderAsync(() => Task.FromResult(
+            "> - Quoted item\n> - Another\n"));
+
+        List<XElement> paragraphs = document.Body()
+            .Descendants(Text + "list-item")
+            .Elements(Text + "p")
+            .ToList();
+
+        Assert.Equal(2, paragraphs.Count);
+        Assert.All(
+            paragraphs,
+            paragraph => Assert.Equal(
+                "Quotations",
+                paragraph.Attribute(Text + "style-name")!.Value));
+    }
+
+    [Fact]
+    public async Task A_Merged_Cell_Is_Followed_By_Covered_Cell_Placeholders()
+    {
+        var document = await OdtPackage.RenderAsync(() => Task.FromResult(
+            "+-------+---+\n| Wide      |\n+-------+---+\n| a     | b |\n+-------+---+\n"));
+
+        XElement table = Assert.Single(document.Body().Elements(Table + "table"));
+        List<XElement> rows = table.Descendants(Table + "table-row").ToList();
+        Assert.Equal(2, rows.Count);
+
+        XElement merged = Assert.Single(rows[0].Elements(Table + "table-cell"));
+        Assert.Equal("2", merged.Attribute(Table + "number-columns-spanned")!.Value);
+
+        // Every row must occupy the same number of grid positions or values shift left.
+        Assert.All(rows, row => Assert.Equal(
+            2,
+            row.Elements(Table + "table-cell").Count()
+            + row.Elements(Table + "covered-table-cell").Count()));
+    }
+
+    [Fact]
     public async Task Gfm_Table_Becomes_A_Table_With_A_Header_Row_And_Matching_Cell_Counts()
     {
         var document = await OdtPackage.RenderAsync(() => Task.FromResult(
@@ -387,6 +445,35 @@ public sealed class OdtDocumentWriterTests
         Assert.Equal(
             RenderDiagnostic.DiagramParseFailure,
             Assert.Single(result.Diagnostics).Code);
+    }
+
+    [Fact]
+    public async Task Characters_Illegal_In_Xml_Are_Replaced_Rather_Than_Throwing()
+    {
+        var document = await OdtPackage.RenderAsync(() => Task.FromResult(
+            "Before\u0001after\n\n```\ncode\u000cfeed\n```\n"));
+
+        List<string> texts = document.Body()
+            .Elements(Text + "p")
+            .Select(paragraph => paragraph.Value)
+            .ToList();
+
+        Assert.Equal(["Before\ufffdafter", "code\ufffdfeed"], texts);
+    }
+
+    [Fact]
+    public async Task Constructs_Without_An_Odf_Mapping_Keep_Their_Text()
+    {
+        var document = await OdtPackage.RenderAsync(() => Task.FromResult(
+            "*[HTML]: HyperText Markup Language\n\nInline $x + y$ maths in HTML.\n\n"
+            + "A note[^1].\n\n[^1]: The note body.\n\n$$\nE = mc^2\n$$\n"));
+
+        string body = document.Body().Value;
+
+        Assert.Contains("$x + y$", body, StringComparison.Ordinal);
+        Assert.Contains("HTML", body, StringComparison.Ordinal);
+        Assert.Contains("[1]", body, StringComparison.Ordinal);
+        Assert.Contains("E = mc^2", body, StringComparison.Ordinal);
     }
 
     [Fact]

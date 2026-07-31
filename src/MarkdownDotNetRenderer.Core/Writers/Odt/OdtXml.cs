@@ -37,6 +37,9 @@ internal static class OdtXml
     /// <summary>ODF length suffix for points.</summary>
     private const string PointSuffix = "pt";
 
+    /// <summary>Stands in for characters XML 1.0 cannot represent.</summary>
+    private const char ReplacementCharacter = '\uFFFD';
+
     /// <summary>UTF-8 without a byte-order mark, as every ODF part requires.</summary>
     private static readonly UTF8Encoding Utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
 
@@ -84,6 +87,46 @@ internal static class OdtXml
         Declare(writer, OdfNames.DcPrefix, OdfNames.DcNs);
     }
 
+    /// <summary>
+    /// Writes text, replacing characters XML 1.0 forbids. Markdown is arbitrary input and may
+    /// carry control characters (a form feed inside a code block, say); those must not turn a
+    /// render into an <see cref="ArgumentException"/> from <see cref="XmlWriter"/>.
+    /// </summary>
+    /// <param name="writer">The target writer.</param>
+    /// <param name="value">The text to write.</param>
+    internal static void WriteText(this XmlWriter writer, string value) =>
+        writer.WriteString(SanitizeText(value));
+
+    /// <summary>Replaces every character illegal in XML 1.0 with U+FFFD.</summary>
+    /// <param name="value">The text to sanitise.</param>
+    /// <returns>The same instance when nothing had to change.</returns>
+    internal static string SanitizeText(string value)
+    {
+        StringBuilder? sanitized = null;
+        for (int index = 0; index < value.Length; index++)
+        {
+            char current = value[index];
+            if (XmlConvert.IsXmlChar(current))
+            {
+                sanitized?.Append(current);
+                continue;
+            }
+
+            if (index + 1 < value.Length
+                && XmlConvert.IsXmlSurrogatePair(value[index + 1], current))
+            {
+                sanitized?.Append(current).Append(value[index + 1]);
+                index++;
+                continue;
+            }
+
+            sanitized ??= new StringBuilder(value.Length).Append(value, 0, index);
+            sanitized.Append(ReplacementCharacter);
+        }
+
+        return sanitized?.ToString() ?? value;
+    }
+
     /// <summary>Opens an element in the <c>office</c> namespace.</summary>
     /// <param name="writer">The target writer.</param>
     /// <param name="localName">The element's local name.</param>
@@ -125,56 +168,56 @@ internal static class OdtXml
     /// <param name="localName">The attribute's local name.</param>
     /// <param name="value">The attribute value.</param>
     internal static void OfficeAttribute(this XmlWriter writer, string localName, string value) =>
-        writer.WriteAttributeString(OdfNames.OfficePrefix, localName, OdfNames.OfficeNs, value);
+        Attribute(writer, OdfNames.OfficePrefix, localName, OdfNames.OfficeNs, value);
 
     /// <summary>Writes an attribute in the <c>text</c> namespace.</summary>
     /// <param name="writer">The target writer.</param>
     /// <param name="localName">The attribute's local name.</param>
     /// <param name="value">The attribute value.</param>
     internal static void TextAttribute(this XmlWriter writer, string localName, string value) =>
-        writer.WriteAttributeString(OdfNames.TextPrefix, localName, OdfNames.TextNs, value);
+        Attribute(writer, OdfNames.TextPrefix, localName, OdfNames.TextNs, value);
 
     /// <summary>Writes an attribute in the <c>style</c> namespace.</summary>
     /// <param name="writer">The target writer.</param>
     /// <param name="localName">The attribute's local name.</param>
     /// <param name="value">The attribute value.</param>
     internal static void StyleAttribute(this XmlWriter writer, string localName, string value) =>
-        writer.WriteAttributeString(OdfNames.StylePrefix, localName, OdfNames.StyleNs, value);
+        Attribute(writer, OdfNames.StylePrefix, localName, OdfNames.StyleNs, value);
 
     /// <summary>Writes an attribute in the <c>table</c> namespace.</summary>
     /// <param name="writer">The target writer.</param>
     /// <param name="localName">The attribute's local name.</param>
     /// <param name="value">The attribute value.</param>
     internal static void TableAttribute(this XmlWriter writer, string localName, string value) =>
-        writer.WriteAttributeString(OdfNames.TablePrefix, localName, OdfNames.TableNs, value);
+        Attribute(writer, OdfNames.TablePrefix, localName, OdfNames.TableNs, value);
 
     /// <summary>Writes an attribute in the <c>draw</c> namespace.</summary>
     /// <param name="writer">The target writer.</param>
     /// <param name="localName">The attribute's local name.</param>
     /// <param name="value">The attribute value.</param>
     internal static void DrawAttribute(this XmlWriter writer, string localName, string value) =>
-        writer.WriteAttributeString(OdfNames.DrawPrefix, localName, OdfNames.DrawNs, value);
+        Attribute(writer, OdfNames.DrawPrefix, localName, OdfNames.DrawNs, value);
 
     /// <summary>Writes an attribute in the <c>fo</c> namespace.</summary>
     /// <param name="writer">The target writer.</param>
     /// <param name="localName">The attribute's local name.</param>
     /// <param name="value">The attribute value.</param>
     internal static void FoAttribute(this XmlWriter writer, string localName, string value) =>
-        writer.WriteAttributeString(OdfNames.FoPrefix, localName, OdfNames.FoNs, value);
+        Attribute(writer, OdfNames.FoPrefix, localName, OdfNames.FoNs, value);
 
     /// <summary>Writes an attribute in the ODF <c>svg</c>-compatible namespace.</summary>
     /// <param name="writer">The target writer.</param>
     /// <param name="localName">The attribute's local name.</param>
     /// <param name="value">The attribute value.</param>
     internal static void SvgAttribute(this XmlWriter writer, string localName, string value) =>
-        writer.WriteAttributeString(OdfNames.SvgPrefix, localName, OdfNames.SvgNs, value);
+        Attribute(writer, OdfNames.SvgPrefix, localName, OdfNames.SvgNs, value);
 
     /// <summary>Writes an attribute in the <c>xlink</c> namespace.</summary>
     /// <param name="writer">The target writer.</param>
     /// <param name="localName">The attribute's local name.</param>
     /// <param name="value">The attribute value.</param>
     internal static void XlinkAttribute(this XmlWriter writer, string localName, string value) =>
-        writer.WriteAttributeString(OdfNames.XlinkPrefix, localName, OdfNames.XlinkNs, value);
+        Attribute(writer, OdfNames.XlinkPrefix, localName, OdfNames.XlinkNs, value);
 
     /// <summary>Formats a length in inches, e.g. <c>6.9291in</c>.</summary>
     /// <param name="inches">The length in inches.</param>
@@ -191,6 +234,14 @@ internal static class OdtXml
     /// <returns>The invariant decimal representation.</returns>
     internal static string Integer(int value) =>
         value.ToString(CultureInfo.InvariantCulture);
+
+    private static void Attribute(
+        XmlWriter writer,
+        string prefix,
+        string localName,
+        string ns,
+        string value) =>
+        writer.WriteAttributeString(prefix, localName, ns, SanitizeText(value));
 
     private static string Length(double value, string suffix) =>
         Math.Round(value, LengthDecimals).ToString("0.####", CultureInfo.InvariantCulture) + suffix;

@@ -14,7 +14,8 @@ singleton, injected through a constructor overload:
   ([04-mermaid-engine](04-mermaid-engine.md)).
 - `DiagramTheme` — diagram paint and box geometry
   ([04-mermaid-engine](04-mermaid-engine.md#styling-and-geometry-diagramtheme)).
-- `OdtTheme` — ODF fonts, sizes, colours, and page geometry
+- `OdtTheme` — ODF fonts, sizes, colours, page geometry, and the glyphs the writer picks for
+  bullets and task-list checkboxes
   ([05-output-writers](05-output-writers.md#odtdocumentwriter)).
 
 New diagram types follow the same shape rather than adding inline `private const` fields to a

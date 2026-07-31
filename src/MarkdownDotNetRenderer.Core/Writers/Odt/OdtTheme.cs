@@ -49,6 +49,8 @@ namespace MarkdownDotNetRenderer.Writers.Odt;
 /// <param name="PageHeight">Page height, in inches.</param>
 /// <param name="PageMargin">Page margin on all four sides, in inches.</param>
 /// <param name="ListLevelIndent">Indent added per list nesting level, in inches.</param>
+/// <param name="TaskListCheckedMarker">Glyph standing in for a ticked task-list checkbox.</param>
+/// <param name="TaskListUncheckedMarker">Glyph standing in for an empty task-list checkbox.</param>
 public sealed record OdtTheme(
     string MonospaceFontFamily = "DejaVu Sans Mono, Consolas, monospace",
     double BodyFontSize = 11,
@@ -75,10 +77,19 @@ public sealed record OdtTheme(
     double PageWidth = 8.5,
     double PageHeight = 11,
     double PageMargin = 0.8,
-    double ListLevelIndent = 0.3)
+    double ListLevelIndent = 0.3,
+    string TaskListCheckedMarker = "\u2612",
+    string TaskListUncheckedMarker = "\u2610")
 {
     /// <summary>The defaults documented in docs/05-output-writers.md.</summary>
     public static OdtTheme Default { get; } = new();
+
+    /// <summary>
+    /// Bullet glyphs cycled through as list nesting deepens; the deepest levels reuse them from
+    /// the start. Never empty — an empty list falls back to the first default glyph.
+    /// </summary>
+    public IReadOnlyList<string> BulletCharacters { get; init; } =
+        ["\u2022", "\u25e6", "\u25aa"];
 
     /// <summary>Width available to body content between the page margins, in inches.</summary>
     public double ContentWidth => PageWidth - (2 * PageMargin);

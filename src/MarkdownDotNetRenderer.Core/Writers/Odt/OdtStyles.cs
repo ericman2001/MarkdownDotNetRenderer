@@ -99,8 +99,8 @@ internal static class OdtStyles
     private const string PortraitOrientation = "portrait";
     private const string KeepWithNext = "always";
 
-    /// <summary>Bullet glyphs cycled through as list nesting deepens.</summary>
-    private static readonly string[] BulletCharacters = ["\u2022", "\u25e6", "\u25aa"];
+    /// <summary>Bullet glyph used when a theme supplies none.</summary>
+    private const string FallbackBulletCharacter = "\u2022";
 
     /// <summary>The paragraph style name for a heading level.</summary>
     /// <param name="level">Heading level, 1–6.</param>
@@ -356,9 +356,7 @@ internal static class OdtStyles
             {
                 writer.StartText("list-level-style-bullet");
                 writer.TextAttribute("level", OdtXml.Integer(level));
-                writer.TextAttribute(
-                    "bullet-char",
-                    BulletCharacters[(level - 1) % BulletCharacters.Length]);
+                writer.TextAttribute("bullet-char", BulletCharacter(theme, level));
             }
 
             double indent = theme.ListLevelIndent * level;
@@ -376,6 +374,14 @@ internal static class OdtStyles
         }
 
         writer.WriteEndElement();
+    }
+
+    private static string BulletCharacter(OdtTheme theme, int level)
+    {
+        IReadOnlyList<string> bullets = theme.BulletCharacters;
+        return bullets.Count == 0
+            ? FallbackBulletCharacter
+            : bullets[(level - 1) % bullets.Count];
     }
 
     private static void WritePageLayout(XmlWriter writer, OdtTheme theme)
@@ -465,6 +471,9 @@ internal static class OdtStyles
         /// <summary>Creates an empty collection over a theme.</summary>
         /// <param name="theme">Visual values the styles are derived from.</param>
         internal OdtAutomaticStyles(OdtTheme theme) => _theme = theme;
+
+        /// <summary>How many distinct styles have been requested so far.</summary>
+        internal int Count => _styles.Count;
 
         /// <summary>The style for a span carrying the given inline formatting.</summary>
         /// <param name="bold">Emit bold weight.</param>

@@ -131,13 +131,22 @@ can also open it, at converter-level fidelity. Implemented in
 | `**bold**`, `*italic*`, `~~strike~~`, `` `code` `` | `text:span` referencing a deduplicated automatic text style (`fo:font-weight`, `fo:font-style`, `style:text-line-through-style`, monospace font + background) |
 | Link | `text:a` with `xlink:href` |
 | Bullet / ordered list | `text:list` (style `Bullet_20_List` / `Numbered_20_List`) with `text:list-item`; nested lists nest inside their item and carry their own style |
-| Task list (`- [x]`) | List item paragraph prefixed with `☒`/`☐` |
+| Task list (`- [x]`) | List item paragraph prefixed with `☒`/`☐` (glyphs from `OdtTheme`) |
+| Ordered list starting at *n* | `text:start-value` on the first `text:list-item`, written only when *n* ≠ 1 |
 | Table (GFM) | `table:table` + `table:table-column`, header row inside `table:table-header-rows`, cell alignment from the GFM alignment row on the cell-paragraph automatic style |
+| Merged cell (grid tables) | `table:number-columns-spanned`/`table:number-rows-spanned` plus a `table:covered-table-cell` for every grid position the merge hides, in this row and the rows below |
 | Fenced/indented code block | One `text:p` with style `Preformatted_20_Text` per source line; runs of spaces become `text:s`, tabs `text:tab`, so indentation survives |
 | Block quote | `text:p` with style `Quotations` (indent + left border) |
 | Thematic break | Empty `text:p` with style `Horizontal_20_Line` (bottom border) |
 | Image (`![]()`) | Alt text (or the URL when there is none): the writer has no base directory to resolve local files against |
 | Raw HTML block/inline | The raw text, so nothing is silently dropped |
+| Extension inlines with no ODF equivalent (`$x$` maths, abbreviations, footnote references) | Their text: the maths source with its delimiters, the abbreviated word, `[n]` for a footnote reference |
+| Any other unmapped leaf block | Its source lines as `Preformatted_20_Text` paragraphs |
+
+Characters that XML 1.0 forbids (control characters surviving in the Markdown source) are replaced
+with U+FFFD rather than aborting the render: a document that renders as HTML must also render as
+ODT. There is no `WRITER001` diagnostic on this path — `IDocumentWriter.WriteAsync` has no
+diagnostic sink, so writers degrade silently but never lose text.
 
 ### Diagram embedding
 

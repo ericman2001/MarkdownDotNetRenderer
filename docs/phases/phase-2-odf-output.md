@@ -68,7 +68,7 @@ All XML is written with `XmlWriter` using explicit namespace prefixes (`office`,
 | Thematic break | `text:p` with a bottom-border style |
 | Image | `draw:frame`/`draw:image` referencing a `Pictures/` entry |
 | Diagram (SVG) | `draw:frame` with `svg:width`/`svg:height` in **cm or in** (`px / 96` inches — note ODF uses physical units, unlike OOXML's EMU) containing `draw:image xlink:href="Pictures/diagram-N.svg"`, plus `svg:title`/`svg:desc` from the alt text |
-| Unsupported (raw HTML, etc.) | Plain text + `WRITER001` |
+| Unsupported (raw HTML, maths, abbreviations, footnote references, etc.) | Plain text. No diagnostic: `IDocumentWriter.WriteAsync` has no diagnostic sink, so `WRITER001` cannot be raised from a writer until one exists (phase 5) |
 
 ## Tasks
 

@@ -17,6 +17,9 @@
 using System.Globalization;
 using System.Text;
 using System.Xml;
+using Markdig.Extensions.Abbreviations;
+using Markdig.Extensions.Footnotes;
+using Markdig.Extensions.Mathematics;
 using Markdig.Extensions.TaskLists;
 using Markdig.Extensions.Tables;
 using Markdig.Helpers;
@@ -54,11 +57,8 @@ public sealed class OdtDocumentWriter : IDocumentWriter
     /// <summary>Sequential name template for a table.</summary>
     private const string TableNameFormat = "Table{0}";
 
-    /// <summary>Task-list marker for a checked item.</summary>
-    private const string CheckedMarker = "\u2612";
-
-    /// <summary>Task-list marker for an unchecked item.</summary>
-    private const string UncheckedMarker = "\u2610";
+    /// <summary>Ordered-list start value ODF assumes, so it is only written when overridden.</summary>
+    private const int DefaultListStart = 1;
 
     private readonly OdtTheme _theme;
 
@@ -102,8 +102,18 @@ public sealed class OdtDocumentWriter : IDocumentWriter
         // The cache is keyed by property set, so the second pass adds nothing and names match.
         _ = OdtXml.WritePart(writer => WriteContentDocument(
             writer, content, options, styles, pictures, includeStyles: false, cancellationToken));
+        int discoveredStyles = styles.Count;
         byte[] contentPart = OdtXml.WritePart(writer => WriteContentDocument(
             writer, content, options, styles, pictures, includeStyles: true, cancellationToken));
+
+        // A style first requested in the second pass would be referenced but never declared, so
+        // fail loudly rather than emit a document whose style names do not resolve.
+        if (styles.Count != discoveredStyles)
+        {
+            throw new InvalidOperationException(
+                "The ODT body requested automatic styles that the first pass did not discover; "
+                + "every style request must be a pure function of the document.");
+        }
 
         var package = new OdtPackageWriter();
         package.AddPart(OdfNames.ContentEntry, OdfNames.XmlMediaType, contentPart);
@@ -162,7 +172,7 @@ public sealed class OdtDocumentWriter : IDocumentWriter
         writer.WriteString(Generator);
         writer.WriteEndElement();
         writer.WriteStartElement(OdfNames.DcPrefix, "title", OdfNames.DcNs);
-        writer.WriteString(title);
+        writer.WriteText(title);
         writer.WriteEndElement();
         writer.WriteStartElement(OdfNames.MetaPrefix, "creation-date", OdfNames.MetaNs);
         writer.WriteString(FixedTimestamp);
@@ -197,7 +207,7 @@ public sealed class OdtDocumentWriter : IDocumentWriter
         writer.StartOffice("body");
         writer.StartOffice("text");
 
-        var context = new BodyContext(writer, styles, pictures);
+        var context = new BodyContext(writer, styles);
         int pictureIndex = 0;
         foreach (DocumentBlock block in content.Blocks)
         {
@@ -266,7 +276,7 @@ public sealed class OdtDocumentWriter : IDocumentWriter
                 break;
 
             case ListBlock list:
-                WriteList(context, list);
+                WriteList(context, list, paragraphStyle);
                 break;
 
             case ThematicBreakBlock:
@@ -289,7 +299,7 @@ public sealed class OdtDocumentWriter : IDocumentWriter
                 {
                     writer.StartText("p");
                     writer.TextAttribute("style-name", paragraphStyle);
-                    writer.WriteString(line);
+                    writer.WriteText(line);
                     writer.WriteEndElement();
                 }
 
@@ -313,12 +323,18 @@ public sealed class OdtDocumentWriter : IDocumentWriter
                 writer.WriteEndElement();
                 break;
 
+            case LeafBlock leaf when leaf.Lines.Count > 0:
+                // An unmapped leaf block (a math block from an extension, say) still owns source
+                // lines; keep them verbatim rather than dropping the block.
+                WriteCodeLines(context, ReadLines(leaf.Lines));
+                break;
+
             default:
                 break;
         }
     }
 
-    private void WriteList(BodyContext context, ListBlock list)
+    private void WriteList(BodyContext context, ListBlock list, string paragraphStyle)
     {
         XmlWriter writer = context.Writer;
         writer.StartText("list");
@@ -326,25 +342,49 @@ public sealed class OdtDocumentWriter : IDocumentWriter
             "style-name",
             list.IsOrdered ? OdtStyles.NumberedList : OdtStyles.BulletList);
 
+        bool firstItem = true;
         foreach (Block item in list)
         {
             writer.StartText("list-item");
+            if (firstItem && list.IsOrdered && TryGetListStart(list, out int start))
+            {
+                writer.TextAttribute("start-value", OdtXml.Integer(start));
+            }
+
+            firstItem = false;
             if (item is ListItemBlock listItem)
             {
                 foreach (Block child in listItem)
                 {
-                    WriteBlock(context, child, OdtStyles.StandardParagraph);
+                    WriteBlock(context, child, paragraphStyle);
                 }
             }
             else
             {
-                WriteBlock(context, item, OdtStyles.StandardParagraph);
+                WriteBlock(context, item, paragraphStyle);
             }
 
             writer.WriteEndElement();
         }
 
         writer.WriteEndElement();
+    }
+
+    private static bool TryGetListStart(ListBlock list, out int start)
+    {
+        if (int.TryParse(
+                list.OrderedStart,
+                NumberStyles.None,
+                CultureInfo.InvariantCulture,
+                out int parsed)
+            && parsed != DefaultListStart)
+        {
+            start = parsed;
+            return true;
+        }
+
+        start = DefaultListStart;
+        return false;
     }
 
     private void WriteTable(BodyContext context, Table table)
@@ -367,7 +407,12 @@ public sealed class OdtDocumentWriter : IDocumentWriter
 
         writer.WriteEndElement();
 
+        // ODF allows one table:table-header-rows group, before the body rows. Markdig only ever
+        // produces leading header rows; a stray later one is written as a body row rather than
+        // opening a second, invalid group.
         bool headerOpen = false;
+        bool headerClosed = false;
+        int[] rowSpans = new int[columnCount];
         foreach (Block rowBlock in table)
         {
             if (rowBlock is not TableRow row)
@@ -375,7 +420,7 @@ public sealed class OdtDocumentWriter : IDocumentWriter
                 continue;
             }
 
-            if (row.IsHeader && !headerOpen)
+            if (row.IsHeader && !headerOpen && !headerClosed)
             {
                 writer.StartTable("table-header-rows");
                 headerOpen = true;
@@ -384,9 +429,10 @@ public sealed class OdtDocumentWriter : IDocumentWriter
             {
                 writer.WriteEndElement();
                 headerOpen = false;
+                headerClosed = true;
             }
 
-            WriteTableRow(context, table, row);
+            WriteTableRow(context, table, row, rowSpans);
         }
 
         if (headerOpen)
@@ -397,7 +443,16 @@ public sealed class OdtDocumentWriter : IDocumentWriter
         writer.WriteEndElement();
     }
 
-    private void WriteTableRow(BodyContext context, Table table, TableRow row)
+    /// <summary>
+    /// Writes one row. A merged cell must be followed by <c>table:covered-table-cell</c>
+    /// placeholders for every grid position it hides, horizontally in this row and vertically in
+    /// the rows below, or consumers read the row as short and shift the remaining values left.
+    /// </summary>
+    /// <param name="context">The writer state.</param>
+    /// <param name="table">The table being written, for its column alignments.</param>
+    /// <param name="row">The row to write.</param>
+    /// <param name="rowSpans">Per-column count of rows still covered by an earlier cell.</param>
+    private void WriteTableRow(BodyContext context, Table table, TableRow row, int[] rowSpans)
     {
         XmlWriter writer = context.Writer;
         writer.StartTable("table-row");
@@ -410,16 +465,24 @@ public sealed class OdtDocumentWriter : IDocumentWriter
                 continue;
             }
 
+            column = WriteCoveredCells(writer, rowSpans, column);
+
+            int columnSpan = Math.Max(1, cell.ColumnSpan);
+            int rowSpan = Math.Max(1, cell.RowSpan);
             string? alignment = ColumnAlignment(table, column);
             string paragraphStyle = context.Styles.CellParagraph(row.IsHeader, alignment);
 
             writer.StartTable("table-cell");
             writer.TableAttribute("style-name", context.Styles.TableCell(row.IsHeader));
             writer.OfficeAttribute("value-type", "string");
-            if (cell.ColumnSpan > 1)
+            if (columnSpan > 1)
             {
-                writer.TableAttribute(
-                    "number-columns-spanned", OdtXml.Integer(cell.ColumnSpan));
+                writer.TableAttribute("number-columns-spanned", OdtXml.Integer(columnSpan));
+            }
+
+            if (rowSpan > 1)
+            {
+                writer.TableAttribute("number-rows-spanned", OdtXml.Integer(rowSpan));
             }
 
             foreach (Block child in cell)
@@ -429,9 +492,44 @@ public sealed class OdtDocumentWriter : IDocumentWriter
 
             writer.WriteEndElement();
 
-            column += Math.Max(1, cell.ColumnSpan);
+            for (int covered = 1; covered < columnSpan; covered++)
+            {
+                WriteCoveredCell(writer);
+            }
+
+            for (int offset = 0; offset < columnSpan && column + offset < rowSpans.Length; offset++)
+            {
+                rowSpans[column + offset] = rowSpan - 1;
+            }
+
+            column += columnSpan;
         }
 
+        _ = WriteCoveredCells(writer, rowSpans, column);
+
+        writer.WriteEndElement();
+    }
+
+    /// <summary>Emits placeholders for the columns a previous row's vertical span still covers.</summary>
+    /// <param name="writer">The target writer.</param>
+    /// <param name="rowSpans">Per-column count of rows still covered; decremented as consumed.</param>
+    /// <param name="column">The grid column the next cell would occupy.</param>
+    /// <returns>The first grid column not covered by an earlier cell.</returns>
+    private static int WriteCoveredCells(XmlWriter writer, int[] rowSpans, int column)
+    {
+        while (column < rowSpans.Length && rowSpans[column] > 0)
+        {
+            rowSpans[column]--;
+            WriteCoveredCell(writer);
+            column++;
+        }
+
+        return column;
+    }
+
+    private static void WriteCoveredCell(XmlWriter writer)
+    {
+        writer.StartTable("covered-table-cell");
         writer.WriteEndElement();
     }
 
@@ -486,10 +584,10 @@ public sealed class OdtDocumentWriter : IDocumentWriter
         if (!string.IsNullOrWhiteSpace(diagram.AltText))
         {
             writer.StartSvg("title");
-            writer.WriteString(diagram.AltText);
+            writer.WriteText(diagram.AltText);
             writer.WriteEndElement();
             writer.StartSvg("desc");
-            writer.WriteString(diagram.AltText);
+            writer.WriteText(diagram.AltText);
             writer.WriteEndElement();
         }
 
@@ -560,7 +658,7 @@ public sealed class OdtDocumentWriter : IDocumentWriter
                 index++;
             }
 
-            writer.WriteString(line[textStart..index]);
+            writer.WriteText(line[textStart..index]);
         }
     }
 
@@ -577,11 +675,11 @@ public sealed class OdtDocumentWriter : IDocumentWriter
             switch (inline)
             {
                 case LiteralInline literal:
-                    writer.WriteString(literal.Content.ToString());
+                    writer.WriteText(literal.Content.ToString());
                     break;
 
                 case CodeInline code:
-                    WriteSpan(context, format.WithCode(), () => writer.WriteString(code.Content));
+                    WriteSpan(context, format.WithCode(), () => writer.WriteText(code.Content));
                     break;
 
                 case EmphasisInline emphasis:
@@ -598,7 +696,9 @@ public sealed class OdtDocumentWriter : IDocumentWriter
                     break;
 
                 case TaskList task:
-                    writer.WriteString(task.Checked ? CheckedMarker : UncheckedMarker);
+                    writer.WriteText(task.Checked
+                        ? _theme.TaskListCheckedMarker
+                        : _theme.TaskListUncheckedMarker);
                     break;
 
                 case LinkInline { IsImage: true } image:
@@ -619,7 +719,7 @@ public sealed class OdtDocumentWriter : IDocumentWriter
                     writer.StartText("a");
                     writer.XlinkAttribute("type", "simple");
                     writer.XlinkAttribute("href", autolink.Url);
-                    writer.WriteString(autolink.Url);
+                    writer.WriteText(autolink.Url);
                     writer.WriteEndElement();
                     break;
 
@@ -637,12 +737,29 @@ public sealed class OdtDocumentWriter : IDocumentWriter
                     break;
 
                 case HtmlEntityInline entity:
-                    writer.WriteString(entity.Transcoded.ToString());
+                    writer.WriteText(entity.Transcoded.ToString());
                     break;
 
                 case HtmlInline html:
                     // Raw inline HTML: emit its text so nothing is silently dropped.
-                    writer.WriteString(html.Tag);
+                    writer.WriteText(html.Tag);
+                    break;
+
+                case MathInline math:
+                    // No ODF equivalent for TeX; keep the source, delimiters included.
+                    WriteSpan(context, format.WithCode(), () =>
+                    {
+                        string delimiter = new(math.Delimiter, math.DelimiterCount);
+                        writer.WriteText(delimiter + math.Content.ToString() + delimiter);
+                    });
+                    break;
+
+                case AbbreviationInline abbreviation:
+                    writer.WriteText(abbreviation.Abbreviation.Label ?? string.Empty);
+                    break;
+
+                case FootnoteLink { IsBackLink: false } footnote:
+                    writer.WriteText(FootnoteMarker(footnote));
                     break;
 
                 case ContainerInline nested:
@@ -650,6 +767,8 @@ public sealed class OdtDocumentWriter : IDocumentWriter
                     break;
 
                 default:
+                    // A leaf inline with no text of its own (a footnote back-link, say); there is
+                    // nothing to keep.
                     break;
             }
         }
@@ -663,8 +782,13 @@ public sealed class OdtDocumentWriter : IDocumentWriter
             return;
         }
 
-        context.Writer.WriteString(image.Url ?? string.Empty);
+        context.Writer.WriteText(image.Url ?? string.Empty);
     }
+
+    private static string FootnoteMarker(FootnoteLink link) =>
+        string.Create(
+            CultureInfo.InvariantCulture,
+            $"[{(link.Footnote.Order > 0 ? link.Footnote.Order : link.Index)}]");
 
     private static void WriteSpan(BodyContext context, SpanFormat format, Action writeContent)
     {
@@ -757,18 +881,13 @@ public sealed class OdtDocumentWriter : IDocumentWriter
     }
 
     /// <summary>Writer state threaded through the block and inline visitors.</summary>
-    private sealed class BodyContext(
-        XmlWriter writer,
-        OdtStyles.OdtAutomaticStyles styles,
-        IReadOnlyList<Picture> pictures)
+    private sealed class BodyContext(XmlWriter writer, OdtStyles.OdtAutomaticStyles styles)
     {
         private int _tableCount;
 
         internal XmlWriter Writer { get; } = writer;
 
         internal OdtStyles.OdtAutomaticStyles Styles { get; } = styles;
-
-        internal IReadOnlyList<Picture> Pictures { get; } = pictures;
 
         internal int NextTableIndex() => ++_tableCount;
     }

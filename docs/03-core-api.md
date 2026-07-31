@@ -131,6 +131,11 @@ can hash or re-use the bytes without re-reading the file.
 | `MERMAID004` | Warning | Diagram exceeded a layout guard (node/edge count, cycle depth) | Raw mermaid emitted as a code block |
 | `WRITER001` | Warning | Markdown construct unsupported by the writer (e.g. raw inline HTML in ODT/DOCX) | Construct rendered as plain text |
 
+`WRITER001` is reserved, not yet raised: diagnostics are collected in `MarkdownRenderer` while it
+builds `DocumentContent`, and `IDocumentWriter.WriteAsync` returns a bare `Task` with nowhere to
+report to. The ODT writer therefore degrades to plain text silently. Giving writers a diagnostic
+sink is part of phase 5, where DOCX needs it for unresolvable images.
+
 ## Error-handling contract
 
 **Hard rule: no diagram or Markdown content in a syntactically valid Markdown file may
@@ -149,7 +154,7 @@ large graphs — becomes a `RenderDiagnostic` plus a graceful degradation:
   definition, so no information is lost.
 - **Malformed source in a supported type** → same fallback, with `MERMAID002`.
 - **Unsupported Markdown construct in an office format** (raw HTML blocks, footnote layouts we do not
-  map) → best-effort plain-text rendering plus `WRITER001`.
+  map) → best-effort plain-text rendering; `WRITER001` once writers can report diagnostics.
 
 The CLI surfaces diagnostics on stderr and exits `0` when only warnings occurred, so
 warnings never break a build; a `--strict` switch upgrades any warning to exit code `2`.

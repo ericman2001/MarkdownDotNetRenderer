@@ -26,17 +26,8 @@ public static class CssUnits
     /// <summary>CSS pixels per inch, as fixed by the CSS specification.</summary>
     public const double PixelsPerInch = 96;
 
-    /// <summary>Centimetres per inch.</summary>
-    public const double CentimetersPerInch = 2.54;
-
     /// <summary>Converts a CSS-pixel length to inches.</summary>
     /// <param name="pixels">The length in CSS pixels.</param>
     /// <returns>The same length in inches.</returns>
     public static double PixelsToInches(double pixels) => pixels / PixelsPerInch;
-
-    /// <summary>Converts a CSS-pixel length to centimetres.</summary>
-    /// <param name="pixels">The length in CSS pixels.</param>
-    /// <returns>The same length in centimetres.</returns>
-    public static double PixelsToCentimeters(double pixels) =>
-        PixelsToInches(pixels) * CentimetersPerInch;
 }

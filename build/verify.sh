@@ -116,12 +116,31 @@ if [ "$(dd if="$SMOKE_ODT" bs=1 count=2 2>/dev/null)" != "PK" ]; then
   fail
 fi
 
-# The mimetype entry must be first and stored, which puts its bytes at a fixed offset: a 30-byte
-# local header plus the 8-byte name. Reading them back proves both the order and that no
-# compression was applied.
-ODT_MIMETYPE="$(dd if="$SMOKE_ODT" bs=1 skip=38 count=39 2>/dev/null)"
+# The mimetype entry must come first and be stored, so the first local file header is read out of
+# the package: its own name and extra-field lengths give the offset of the data, rather than
+# assuming a header layout the runtime is free to change.
+odt_uint() {
+  od -An -tu1 -j "$1" -N "$2" "$SMOKE_ODT" | tr -s ' ' '\n' | grep . |
+    awk -v m=1 '{ v += $1 * m; m *= 256 } END { print v + 0 }'
+}
+
+ODT_METHOD="$(odt_uint 8 2)"
+ODT_NAME_LENGTH="$(odt_uint 26 2)"
+ODT_EXTRA_LENGTH="$(odt_uint 28 2)"
+ODT_FIRST_ENTRY="$(dd if="$SMOKE_ODT" bs=1 skip=30 count="$ODT_NAME_LENGTH" 2>/dev/null)"
+ODT_MIMETYPE="$(dd if="$SMOKE_ODT" bs=1 \
+  skip=$((30 + ODT_NAME_LENGTH + ODT_EXTRA_LENGTH)) count=39 2>/dev/null)"
+
+if [ "$ODT_FIRST_ENTRY" != "mimetype" ]; then
+  echo "ODT smoke render's first zip entry is '$ODT_FIRST_ENTRY', not 'mimetype'." >&2
+  fail
+fi
+if [ "$ODT_METHOD" != "0" ]; then
+  echo "ODT smoke render stores mimetype with compression method $ODT_METHOD, not 0 (stored)." >&2
+  fail
+fi
 if [ "$ODT_MIMETYPE" != "application/vnd.oasis.opendocument.text" ]; then
-  echo "ODT smoke render does not start with an uncompressed mimetype entry." >&2
+  echo "ODT smoke render's mimetype entry holds the wrong bytes." >&2
   echo "Found: $ODT_MIMETYPE" >&2
   fail
 fi
