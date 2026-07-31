@@ -90,7 +90,7 @@ a disconnected pair, a long-span edge):
 
 ### 6. Dispatcher fallback
 
-- `sequenceDiagram` (before phase 3), `gantt`, `classDiagram`, `erDiagram`, and a nonsense
+- `gantt`, `classDiagram`, `erDiagram`, and a nonsense
   `bananaDiagram` all return `Success = false` with `MERMAID001`.
 - Rendering a document containing such a block yields a complete document whose diagram
   position holds a code block with the **verbatim original source**, and the render **does not
@@ -139,6 +139,24 @@ input are byte-identical.
   image part.
 - Fallback code blocks appear as monospaced content, and the original mermaid text is present.
 - Determinism: two renders of the same input produce identical `document.xml`.
+
+### 9b. `SequenceRenderer` (phase 3)
+
+The same four areas as the flowchart, against `samples/sequence-demo.md` and inline sources:
+
+- **Parsing**: participant/actor declarations and aliases, first-mention ordering, all eight arrow
+  spellings mapped to their line style and arrowhead, self-messages, the three note placements,
+  `autonumber`, comments, activation shorthand, per-keyword `MERMAID003` for deferred fragments,
+  and failure (never an exception) for a header-less or actor-less source.
+- **Layout invariants**: columns strictly increase in x and never overlap, rows strictly increase
+  in y and follow source order, message endpoints equal their actors' lifeline x, everything sits
+  inside the canvas (including left-hand notes), and the size guards trip instead of laying out.
+- **SVG**: well-formed XML, one header box and one dashed lifeline per actor, one group per
+  message carrying `data-source`/`data-target`, four distinct markers defined once and referenced
+  correctly, dashed lines only where the source is dashed, escaping, self-containment, invariant
+  number formatting, and byte-identical repeated renders.
+- **End-to-end**: the sample renders to HTML with inline sequence SVG and to ODT with one
+  `Pictures/*.svg` part per diagram — with no writer changes — and both are byte-reproducible.
 
 ### 10. End-to-end and cross-platform
 

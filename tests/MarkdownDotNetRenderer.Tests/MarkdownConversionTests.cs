@@ -128,7 +128,7 @@ public sealed class MarkdownConversionTests
 
         // The mermaid fallback is escaped by us rather than by Markdig, so cover it here too.
         string fallback = await RenderAsync(
-            "```mermaid\nsequenceDiagram\n    A->>B: <b>bold</b>\n```\n");
+            "```mermaid\nclassDiagram\n    A : <b>bold</b>\n```\n");
         Assert.Contains("&lt;b&gt;bold&lt;/b&gt;", fallback, StringComparison.Ordinal);
         SelfContainment.Assert(fallback);
     }

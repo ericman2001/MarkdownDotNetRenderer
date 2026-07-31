@@ -85,21 +85,50 @@ construction — no iteration, no heuristics.
    `sequenceDiagram` from "planned" to "supported", and verify the same fixtures in whichever
    office formats have shipped.
 
+## Implementation notes
+
+Decisions taken while implementing the layout above, recorded here because they are not derivable
+from the plan:
+
+- **Files.** `Sequence/SequenceModel.cs`, `SequenceParser.cs`, `SequenceLayout.cs` (the
+  solver-free layout, the counterpart of `Flowchart/LayeredLayout.cs`), `SequenceTheme.cs`
+  (paint), and `SequenceRenderer.cs`. Geometry constants live in the `SequenceMetrics` record and
+  colours in `SequenceTheme`; the renderer contains no bare numbers other than the marker path
+  data, which is expressed in the marker's own `0 0 10 10` viewBox.
+- **Column widths.** Rather than widening a *column* to fit a label (which would move a lifeline
+  off-centre relative to its header), each *gap* between neighbouring columns is widened so that
+  any message or `Note over` label spanning that pair fits between the two lifelines. A label
+  spanning several columns spreads its requirement evenly across the gaps it crosses. One pass
+  over the events, no iteration.
+- **`MaxDiagramWidth`.** The intrinsic `viewBox` is kept and only the presented `width`/`height`
+  are clamped, so a wide diagram scales down instead of being clipped or reflowed. This matches
+  the flowchart renderer and keeps the layout independent of the output size.
+- **Left-hand notes.** `Note left of` the first actor would otherwise be drawn at a negative x.
+  The layout instead shifts every placed element right by the overflow, so the canvas always
+  starts at 0.
+- **Arrowheads.** Four markers — filled (`->>`), open (`->`), cross (`-x`), and async (`-)`,
+  parsed and drawn even though the phase table lists it as optional). They are emitted once per
+  diagram inside `<defs>`, with ids prefixed by the source fingerprint from the shared
+  `Mermaid/DiagramIds.cs` helper (extracted from the flowchart renderer) so two diagrams in one
+  HTML document cannot collide.
+- **Numbering.** `autonumber` is applied in the parser (`SequenceMessage.Number`), not the
+  renderer, so the number participates in text measurement and therefore in layout.
+
 ## Acceptance criteria
 
-- [ ] A sample Markdown file containing a `sequenceDiagram` renders in **HTML** as readable
+- [x] A sample Markdown file containing a `sequenceDiagram` renders in **HTML** as readable
       inline SVG: each actor has a labelled header and a dashed lifeline, each message is an
       arrow between the correct lifelines in source order with its label legible, and nothing
       overlaps illegibly.
-- [ ] The same sample renders in **ODT** with the diagram visible in LibreOffice Writer — with
+- [x] The same sample renders in **ODT** with the diagram visible in LibreOffice Writer — with
       **no changes to `OdtDocumentWriter`**, proving the writer/diagram separation holds. Once
       [phase 5](phase-5-docx.md) lands, the same must hold for `DocxDocumentWriter` in Word 2016+.
-- [ ] All four arrow styles (`->>`, `-->>`, `->`, `-x`) are visually distinguishable, and
+- [x] All four arrow styles (`->>`, `-->>`, `->`, `-x`) are visually distinguishable, and
       self-messages and notes render correctly.
-- [ ] `loop`/`alt`/`opt`/`activate` constructs do not break the render: the contained messages
+- [x] `loop`/`alt`/`opt`/`activate` constructs do not break the render: the contained messages
       still appear in order, with at most one `MERMAID003` per construct type.
-- [ ] Malformed sequence source falls back to the code block with `MERMAID002`; no exception.
-- [ ] Emitted SVG is well-formed XML and byte-identical across repeated renders and across
+- [x] Malformed sequence source falls back to the code block with `MERMAID002`; no exception.
+- [x] Emitted SVG is well-formed XML and byte-identical across repeated renders and across
       Linux/macOS/Windows.
-- [ ] `build/verify` prints `PASS` on all three OSes: warning-free build, green tests, AOT smoke
+- [x] `build/verify` prints `PASS` on all three OSes: warning-free build, green tests, AOT smoke
       test.

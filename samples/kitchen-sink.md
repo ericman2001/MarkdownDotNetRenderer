@@ -56,6 +56,19 @@ flowchart TD
     Skip --> Done
 ```
 
+A sequence diagram with an alias, numbered messages, a self-message, and a note:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant S as Server
+    C->>S: GET /report
+    S->>S: render
+    Note over C,S: cached for a minute
+    S-->>C: 200 OK
+```
+
 A left-to-right graph, with a long-form edge label, an undirected link, and a chain:
 
 ```mermaid
@@ -69,8 +82,8 @@ graph LR
 An unsupported diagram type falls back to an escaped code block with one `MERMAID001` warning:
 
 ```mermaid
-sequenceDiagram
-    Alice->>Bob: Not until phase 4
+gantt
+    title Not until phase 4
 ```
 
 A malformed flowchart falls back with `MERMAID002`:
