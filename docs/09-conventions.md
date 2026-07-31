@@ -14,6 +14,9 @@ singleton, injected through a constructor overload:
   ([04-mermaid-engine](04-mermaid-engine.md)).
 - `DiagramTheme` — diagram paint and box geometry
   ([04-mermaid-engine](04-mermaid-engine.md#styling-and-geometry-diagramtheme)).
+- `OdtTheme` — ODF fonts, sizes, colours, page geometry, and the glyphs the writer picks for
+  bullets and task-list checkboxes
+  ([05-output-writers](05-output-writers.md#odtdocumentwriter)).
 
 New diagram types follow the same shape rather than adding inline `private const` fields to a
 renderer. Consequence: helpers that read these values are instance methods, or take the record
@@ -42,7 +45,10 @@ the type that owns the concept:
 
 - Diagnostic codes (`MERMAID001`, `WRITER001`, …) on `RenderDiagnostic`.
 - CLI exit codes in `CommandLine`.
-- XML namespaces, MIME types, and format literals (e.g. the SVG namespace on `SvgBuilder`).
+- XML namespaces, MIME types, and format literals (e.g. the SVG namespace on `SvgBuilder`; every
+  ODF namespace, package entry name, media type, and name template on `OdfNames`).
+- Unit conversions defined by a spec, on the type that owns the unit (`CssUnits.PixelsPerInch`),
+  shared by every writer that needs physical sizes rather than duplicated per format.
 
 ## 4. User-facing render defaults → `RenderOptions`
 

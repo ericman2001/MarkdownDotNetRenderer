@@ -18,6 +18,7 @@ using Markdig.Syntax;
 using MarkdownDotNetRenderer.Markdown;
 using MarkdownDotNetRenderer.Mermaid;
 using MarkdownDotNetRenderer.Writers;
+using MarkdownDotNetRenderer.Writers.Odt;
 
 namespace MarkdownDotNetRenderer;
 
@@ -69,8 +70,7 @@ public sealed class MarkdownRenderer : IMarkdownRenderer
     public static IDocumentWriter CreateWriter(OutputFormat format) => format switch
     {
         OutputFormat.Html => new HtmlDocumentWriter(MarkdownPipelineFactory.Default),
-        OutputFormat.Odt => throw new NotSupportedException(
-            "ODT output is not implemented until phase 2; use --format html for now."),
+        OutputFormat.Odt => new OdtDocumentWriter(),
         OutputFormat.Docx => throw new NotSupportedException(
             "DOCX output is not implemented until phase 5; use --format html for now."),
         _ => throw new ArgumentOutOfRangeException(nameof(format), format, "Unknown output format."),

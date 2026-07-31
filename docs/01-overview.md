@@ -90,13 +90,13 @@ edge label, and a sane non-overlapping layout. It does **not** need to match
 | AOT | CLI sets `<PublishAot>true</PublishAot>`; Core sets `<IsAotCompatible>true</IsAotCompatible>` and stays reflection-free |
 | JavaScript | **None.** No Node, no headless browser, no JS engine, no `<script>` in output |
 | Markdown parser | Markdig, GFM/advanced pipeline (`UseAdvancedExtensions`) |
-| Outputs | Self-contained HTML (inline SVG), then ODT ([phase 2](phases/phase-2-odf-output.md)), then DOCX ([phase 5](phases/phase-5-docx.md)) |
+| Outputs | Self-contained HTML (inline SVG) and ODT (native SVG pictures) — both implemented ([phase 1](phases/phase-1-html-flowchart.md), [phase 2](phases/phase-2-odf-output.md)); then DOCX ([phase 5](phases/phase-5-docx.md)) |
 | Platforms | Linux, macOS, Windows — all first-class; no Windows-only APIs, no Office automation |
 | DOCX diagrams | **SVG-only** embedding (newer Word). PNG raster fallback **deferred** |
 | Mermaid engine | Pluggable `IDiagramRenderer` per diagram type, dispatched on the first token |
 | Unsupported diagrams | Fall back to the raw mermaid source as a fenced/preformatted code block; **never throw** |
 | Mermaid fidelity | Structurally correct and readable; not pixel-perfect |
-| ODT writer | Hand-written ODF XML + `ZipArchive`; no dependency, fully AOT-clean |
+| ODT writer | Hand-written ODF XML + `ZipArchive`; no dependency, fully AOT-clean — implemented in [phase 2](phases/phase-2-odf-output.md) |
 | DOCX writer | DocumentFormat.OpenXml (MIT), isolated behind `IDocumentWriter` |
 | API shape | Async: `Task<byte[]> RenderAsync(...)`, plus `Task RenderFileAsync(...)` |
 | Projects | `MarkdownDotNetRenderer.Core` (library), `MarkdownDotNetRenderer.Cli` (exe), `MarkdownDotNetRenderer.Tests` (xUnit) |

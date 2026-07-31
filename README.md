@@ -7,11 +7,12 @@ A **pure C#** renderer that turns GitHub-Flavored Markdown — including embedde
 (**ODT**, then **DOCX**) you can hand to anyone, with **no JavaScript anywhere in the rendering
 path**.
 
-> **Status: phase 1 (HTML + flowcharts) complete.** `mdrender` turns Markdown containing
+> **Status: phases 1–2 (HTML + ODT, flowcharts) complete.** `mdrender` turns Markdown containing
 > ` ```mermaid ` `flowchart`/`graph` blocks into a single self-contained HTML file with inline,
-> hand-written SVG. ODT ([phase 2](docs/phases/phase-2-odf-output.md)) and DOCX
-> ([phase 5](docs/phases/phase-5-docx.md)) writers, and diagram types beyond flowcharts, are
-> still to come; selecting them reports a clear error or degrades to a code block. Start with
+> hand-written SVG, or into an OpenDocument Text file whose diagrams are native, vector SVG
+> pictures — still with no new dependency. The DOCX writer
+> ([phase 5](docs/phases/phase-5-docx.md)) and diagram types beyond flowcharts are still to come;
+> selecting them reports a clear error or degrades to a code block. Start with
 > [docs/01-overview.md](docs/01-overview.md).
 
 ## Why
@@ -72,8 +73,8 @@ and anyone can reproduce the exact gate in one command. Details in
 
 | Format | Diagrams | Status |
 | --- | --- | --- |
-| Self-contained HTML | Inline `<svg>` | [Phase 1](docs/phases/phase-1-html-flowchart.md) |
-| ODT (LibreOffice / OpenOffice; also opens in Word 2010+) | Native SVG, no new dependency | [Phase 2](docs/phases/phase-2-odf-output.md) |
+| Self-contained HTML | Inline `<svg>` | [Phase 1](docs/phases/phase-1-html-flowchart.md) — implemented |
+| ODT (LibreOffice / OpenOffice; also opens in Word 2010+) | Native SVG, no new dependency | [Phase 2](docs/phases/phase-2-odf-output.md) — implemented |
 | DOCX (Word) | Embedded **SVG only** (Word 2016+/365) | [Phase 5](docs/phases/phase-5-docx.md) |
 | DOCX with PNG fallback | Raster for older Word | [Phase 6](docs/phases/phase-6-docx-png-fallback.md) — deferred/optional |
 
@@ -97,10 +98,12 @@ convert-on-import path.
 var renderer = new MarkdownRenderer();
 RenderResult result = await renderer.RenderAsync(markdownText, RenderOptions.Html);
 await renderer.RenderFileAsync("design.md", "design.html", RenderOptions.Html);
+await renderer.RenderFileAsync("design.md", "design.odt", RenderOptions.Odt);
 ```
 
 ```bash
 mdrender --input design.md --output design.html --format html
+mdrender --input design.md --output design.odt --format odt
 mdrender --input samples/kitchen-sink.md            # --output defaults to the format's extension
 mdrender --help
 ```

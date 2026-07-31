@@ -100,14 +100,58 @@ try {
             throw "Smoke render references external resources: $($External -join ', ')"
         }
 
-        # Formats whose writers have not shipped must fail loudly rather than write a broken file.
-        $OdtOut = Join-Path $SmokeDir 'out.odt'
-        $OdtErrors = & $Binary --input 'samples/flowchart-demo.md' --output $OdtOut --format odt 2>&1
-        if ($LASTEXITCODE -eq 0) {
-            throw '--format odt must fail until its writer ships.'
+        Write-Host '==> Smoke run of native binary (odt)'
+        $SmokeOdt = Join-Path $SmokeDir 'flowchart-demo.odt'
+        Invoke-Checked {
+            & $Binary --input 'samples/flowchart-demo.md' --output $SmokeOdt --format odt
         }
-        if (($OdtErrors -join "`n") -notmatch 'not implemented') {
-            throw '--format odt must explain that the writer is not implemented yet.'
+
+        if (-not (Test-Path $SmokeOdt) -or (Get-Item $SmokeOdt).Length -eq 0) {
+            throw "Native ODT smoke render produced no output at $SmokeOdt"
+        }
+
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $Package = [System.IO.Compression.ZipFile]::OpenRead($SmokeOdt)
+        try {
+            $First = $Package.Entries[0]
+            if ($First.FullName -ne 'mimetype') {
+                throw "The first ODT entry must be mimetype but was $($First.FullName)."
+            }
+            # A stored entry compresses to exactly its own length.
+            if ($First.CompressedLength -ne $First.Length) {
+                throw 'The ODT mimetype entry must be stored uncompressed.'
+            }
+
+            $Reader = New-Object System.IO.StreamReader($First.Open())
+            try {
+                $Mimetype = $Reader.ReadToEnd()
+            }
+            finally {
+                $Reader.Dispose()
+            }
+            if ($Mimetype -ne 'application/vnd.oasis.opendocument.text') {
+                throw "Unexpected ODT mimetype content: $Mimetype"
+            }
+
+            $Names = $Package.Entries | ForEach-Object { $_.FullName }
+            foreach ($needle in @('content.xml', 'styles.xml', 'meta.xml', 'META-INF/manifest.xml', 'Pictures/diagram-1.svg')) {
+                if ($Names -notcontains $needle) {
+                    throw "ODT smoke render is missing the package entry: $needle"
+                }
+            }
+        }
+        finally {
+            $Package.Dispose()
+        }
+
+        # Formats whose writers have not shipped must fail loudly rather than write a broken file.
+        $DocxOut = Join-Path $SmokeDir 'out.docx'
+        $DocxErrors = & $Binary --input 'samples/flowchart-demo.md' --output $DocxOut --format docx 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            throw '--format docx must fail until its writer ships.'
+        }
+        if (($DocxErrors -join "`n") -notmatch 'not implemented') {
+            throw '--format docx must explain that the writer is not implemented yet.'
         }
     }
     finally {

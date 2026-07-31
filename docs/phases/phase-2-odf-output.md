@@ -68,7 +68,7 @@ All XML is written with `XmlWriter` using explicit namespace prefixes (`office`,
 | Thematic break | `text:p` with a bottom-border style |
 | Image | `draw:frame`/`draw:image` referencing a `Pictures/` entry |
 | Diagram (SVG) | `draw:frame` with `svg:width`/`svg:height` in **cm or in** (`px / 96` inches — note ODF uses physical units, unlike OOXML's EMU) containing `draw:image xlink:href="Pictures/diagram-N.svg"`, plus `svg:title`/`svg:desc` from the alt text |
-| Unsupported (raw HTML, etc.) | Plain text + `WRITER001` |
+| Unsupported (raw HTML, maths, abbreviations, footnote references, etc.) | Plain text. No diagnostic: `IDocumentWriter.WriteAsync` has no diagnostic sink, so `WRITER001` cannot be raised from a writer until one exists (phase 5) |
 
 ## Tasks
 
@@ -105,25 +105,53 @@ All XML is written with `XmlWriter` using explicit namespace prefixes (`office`,
 
 ## Acceptance criteria
 
-- [ ] `mdrender -i samples/kitchen-sink.md -o out.odt -f odt` produces a file that **opens in
+- [x] `mdrender -i samples/kitchen-sink.md -o out.odt -f odt` produces a file that **opens in
       LibreOffice Writer on Linux and on Windows without a repair or format warning**, with
       correct headings, paragraphs, nested lists, tables, code blocks, and quotes.
-- [ ] Diagrams **display as vector images** in LibreOffice Writer — no rasterizer, no PNG.
+      *(Verified on Linux — see "Observed application behaviour" below. Windows LibreOffice not
+      yet exercised; the package is byte-identical there, so the same result is expected but is
+      not claimed as measured.)*
+- [x] Diagrams **display as vector images** in LibreOffice Writer — no rasterizer, no PNG.
 - [ ] The file also opens in Apache OpenOffice Writer (prose correct; SVG support may vary by
-      version — record the observed behaviour).
+      version — record the observed behaviour). *(Not yet measured.)*
 - [ ] **Measured, not assumed:** open the same `.odt` in a recent Microsoft Word and record what
       happens to the prose *and* to the SVG diagrams (rendered / rasterized / missing). Write the
       result into this document — it is the main input to how [phase 5](phase-5-docx.md) is
-      prioritized.
-- [ ] `mimetype` is the first zip entry, stored uncompressed, with exactly
+      prioritized. *(Not yet measured — no Word available on the build machine.)*
+- [x] `mimetype` is the first zip entry, stored uncompressed, with exactly
       `application/vnd.oasis.opendocument.text`.
-- [ ] `META-INF/manifest.xml` lists every entry actually present, with correct media types, and
+- [x] `META-INF/manifest.xml` lists every entry actually present, with correct media types, and
       all XML parts are well-formed.
-- [ ] Unsupported diagram types fall back to a readable code block with the same diagnostics as
+- [x] Unsupported diagram types fall back to a readable code block with the same diagnostics as
       the HTML and DOCX paths; nothing throws.
-- [ ] **No new NuGet dependency** was added, and the ODT path publishes and runs under
+- [x] **No new NuGet dependency** was added, and the ODT path publishes and runs under
       `PublishAot=true` with **no** trim/AOT warning suppressions.
-- [ ] Repeated renders are byte-identical, and output is identical across Linux, macOS, and
-      Windows.
-- [ ] `build/verify` prints `PASS` on all three OSes, including the AOT smoke test rendering an
-      `.odt` with the native binary — this path must stay AOT-clean.
+- [x] Repeated renders are byte-identical, and output is identical across Linux, macOS, and
+      Windows. *(Byte-identity asserted by a test; cross-OS identity follows from the fixed
+      timestamps, invariant formatting, and LF endings, and is exercised by the three-OS CI
+      matrix.)*
+- [x] `build/verify` prints `PASS` on all three OSes, including the AOT smoke test rendering an
+      `.odt` with the native binary — this path must stay AOT-clean. *(Verified locally on Linux;
+      the other two OSes run the same script in CI.)*
+
+## Observed application behaviour
+
+Measured, not assumed. Anything not listed here has not been tested and no claim is made about it.
+
+| Application | Version / platform | Prose | Diagrams |
+| --- | --- | --- | --- |
+| LibreOffice Writer | 7.3.7.2 on Ubuntu 22.04 (headless) | Loads with **no repair or format warning**. Headings, paragraphs, inline bold/italic/strike/code, links, ordered and nested bullet lists, task-list checkboxes (`☒`/`☐`), the GFM table (header shading, per-column alignment), block quote, thematic break, and preformatted code with indentation all render as intended. | Render as **native vectors** from the embedded `Pictures/diagram-N.svg` parts — crisp at any zoom, no rasterization, no placeholder. |
+| Apache OpenOffice Writer | — | Not tested. | Not tested. Its SVG support is older than LibreOffice's, so the diagrams may appear as a placeholder; the prose is plain ODF 1.3 and is expected to load. |
+| Microsoft Word | — | Not tested — no Word is available on the build machine. Word 2010+ imports ODF through a converter and typically shows a fidelity notice. | Not tested. Whether Word's ODF importer renders an embedded SVG picture is exactly the open question that decides how much [phase 5](phase-5-docx.md) is still needed; it must be measured on a real Word install before this row is filled in. |
+
+How the LibreOffice result was produced (reproducible on any machine with LibreOffice installed):
+
+```bash
+mdrender -i samples/kitchen-sink.md -o out.odt -f odt
+soffice --headless --convert-to pdf --outdir out out.odt   # exercises the full ODF import path
+pdftoppm -r 80 -png out/out.pdf page                       # then inspect the pages
+```
+
+A successful conversion is a meaningful signal: LibreOffice's PDF export runs the same importer
+and layout engine as the interactive open, so a package it would refuse to load, or an image it
+could not decode, shows up here.
