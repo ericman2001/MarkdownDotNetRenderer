@@ -258,6 +258,37 @@ public sealed class StateDiagramTests
         Assert.True(Number(label, "x") + Number(label, "width") <= result.Width);
     }
 
+    [Fact]
+    public void A_Self_Transition_Label_Overlaps_Neither_Its_Node_Nor_Another_Label()
+    {
+        XElement svg = RenderSvg("""
+            stateDiagram-v2
+                direction LR
+                state "Waiting for input" as Idle
+                Idle --> Idle : poll
+                Idle --> Parsing : markdown arrives
+            """);
+
+        List<(double Left, double Right)> labels = svg
+            .Descendants(Svg + "g")
+            .Where(group => group.Attribute("class")?.Value == "mdnr-edge-label")
+            .Elements(Svg + "rect")
+            .Select(rect => (Number(rect, "x"), Number(rect, "x") + Number(rect, "width")))
+            .ToList();
+
+        Assert.Equal(2, labels.Count);
+        Assert.True(
+            labels[0].Right <= labels[1].Left || labels[1].Right <= labels[0].Left,
+            $"labels {labels[0]} and {labels[1]} overlap");
+
+        XElement node = svg
+            .Descendants(Svg + "g")
+            .Single(group => group.Attribute("data-id")?.Value == "Idle")
+            .Element(Svg + "rect")!;
+        double nodeRight = Number(node, "x") + Number(node, "width");
+        Assert.All(labels, label => Assert.True(label.Left >= nodeRight));
+    }
+
     private static double Number(XElement element, string name) =>
         double.Parse(
             element.Attribute(name)!.Value,

@@ -33,7 +33,15 @@ public enum GraphLineStyle
 /// <param name="Width">Box width in CSS pixels.</param>
 /// <param name="Height">Box height in CSS pixels.</param>
 /// <param name="Shape">Boundary shape used when clipping edge endpoints.</param>
-public sealed record GraphNodeSpec(string Id, double Width, double Height, ClipShape Shape);
+/// <param name="RightReserve">Empty space to keep to the right of the box, which the layout treats
+/// as part of the box but nothing draws in. A self-loop's curve and label live here; see
+/// <see cref="GraphEdgePainter.SelfLoopReserve"/>.</param>
+public sealed record GraphNodeSpec(
+    string Id,
+    double Width,
+    double Height,
+    ClipShape Shape,
+    double RightReserve = 0);
 
 /// <summary>A connection to place, with the markers each end carries.</summary>
 /// <param name="SourceId">Id of the source node; the layout ranks it above the target.</param>
@@ -67,13 +75,16 @@ public sealed record GraphEdgeSpec(
 /// <param name="Width">Box width.</param>
 /// <param name="Height">Box height.</param>
 /// <param name="Shape">Boundary shape used when clipping edge endpoints.</param>
+/// <param name="RightReserve">The empty band kept to the box's right for its self-loop; see
+/// <see cref="GraphNodeSpec.RightReserve"/>.</param>
 public sealed record PlacedNode(
     string Id,
     double CenterX,
     double CenterY,
     double Width,
     double Height,
-    ClipShape Shape)
+    ClipShape Shape,
+    double RightReserve = 0)
 {
     /// <summary>Left edge of the box.</summary>
     public double Left => CenterX - (Width / 2);
@@ -141,13 +152,15 @@ public static class GraphLayoutAdapter
         ArgumentNullException.ThrowIfNull(metrics);
 
         var shapes = new Dictionary<string, ClipShape>(StringComparer.Ordinal);
+        var reserves = new Dictionary<string, double>(StringComparer.Ordinal);
         var sizes = new Dictionary<string, NodeSize>(StringComparer.Ordinal);
         var flowNodes = new List<FlowNode>(nodes.Count);
         for (int i = 0; i < nodes.Count; i++)
         {
             GraphNodeSpec node = nodes[i];
             shapes[node.Id] = node.Shape;
-            sizes[node.Id] = new NodeSize(node.Width, node.Height);
+            reserves[node.Id] = node.RightReserve;
+            sizes[node.Id] = new NodeSize(node.Width + node.RightReserve, node.Height);
             // The label is empty because this adapter only borrows the layout, never the painting:
             // each diagram type draws its own box contents from its own model.
             flowNodes.Add(new FlowNode(node.Id, string.Empty, FlowNodeShape.Rectangle, i));
@@ -183,13 +196,17 @@ public static class GraphLayoutAdapter
                 continue;
             }
 
+            // The reserve was laid out as part of the box; the placed box is the drawn part only,
+            // which is the left of it.
+            double reserve = reserves.TryGetValue(node.Id, out double value) ? value : 0;
             placedNodes.Add(new PlacedNode(
                 node.Id,
-                node.CenterX,
+                node.CenterX - (reserve / 2),
                 node.CenterY,
-                node.Width,
+                node.Width - reserve,
                 node.Height,
-                shapes.TryGetValue(node.Id, out ClipShape shape) ? shape : ClipShape.Box));
+                shapes.TryGetValue(node.Id, out ClipShape shape) ? shape : ClipShape.Box,
+                reserve));
         }
 
         var placedEdges = new List<PlacedEdge>(result.Layout.Edges.Count);

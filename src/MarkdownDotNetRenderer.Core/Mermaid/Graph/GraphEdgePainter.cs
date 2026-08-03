@@ -160,7 +160,7 @@ public static class GraphEdgePainter
         }
 
         List<LayoutPoint> points = edge.IsSelfLoop
-            ? [SelfLoopLabelAnchor(source, paint)]
+            ? [SelfLoopLabelAnchor(source, paint, edge.Edge.Label ?? string.Empty, fontSize)]
             : Route(edge, source, target, paint);
 
         svg.StartElement("g")
@@ -170,11 +170,14 @@ public static class GraphEdgePainter
 
         if (hasLabel)
         {
-            LayoutPoint anchor = GraphGeometry.MidPoint(points);
+            LayoutPoint anchor = edge.IsSelfLoop
+                ? points[0]
+                : MidLabelAnchor(edge.Edge.Label!, points, source, paint, fontSize);
             EmitBoxedText(svg, edge.Edge.Label!, anchor, paint, options, fontSize);
         }
 
-        (LayoutPoint startAnchor, LayoutPoint endAnchor) = EndLabelAnchors(points, paint);
+        (LayoutPoint startAnchor, LayoutPoint endAnchor) =
+            EndLabelAnchors(points, paint, fontSize);
 
         if (!string.IsNullOrEmpty(edge.Edge.StartLabel))
         {
@@ -245,17 +248,47 @@ public static class GraphEdgePainter
             TextMetrics.LineHeight(fontSize) + (2 * paint.LabelPaddingY));
     }
 
-    /// <summary>Where a self-loop's label is centred.</summary>
+    /// <summary>
+    /// Where a self-loop's label is centred: entirely to the right of the loop's curve, so it never
+    /// covers the looping box's own caption.
+    /// </summary>
     /// <param name="source">The looping box.</param>
     /// <param name="paint">Supplies the bulge and the end-label gap.</param>
+    /// <param name="text">The label text, which decides how far right its centre sits.</param>
+    /// <param name="fontSize">Font size in CSS pixels.</param>
     /// <returns>The label's anchor point.</returns>
-    public static LayoutPoint SelfLoopLabelAnchor(PlacedNode source, GraphEdgePaint paint)
+    public static LayoutPoint SelfLoopLabelAnchor(
+        PlacedNode source,
+        GraphEdgePaint paint,
+        string text,
+        double fontSize)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(paint);
+        ArgumentNullException.ThrowIfNull(text);
 
+        double width = text.Length == 0 ? 0 : LabelBoxSize(text, paint, fontSize).Width;
         return new LayoutPoint(
-            source.Left + source.Width + paint.SelfLoopBulge + paint.EndLabelGap, source.CenterY);
+            SelfLoopRight(source, paint) + paint.EndLabelGap + (width / 2), source.CenterY);
+    }
+
+    /// <summary>
+    /// How much room a self-looping box needs to its right for the loop and its label. Reserving it
+    /// during layout is what keeps the loop clear of whatever is placed beside the box.
+    /// </summary>
+    /// <param name="paint">Supplies the bulge and the end-label gap.</param>
+    /// <param name="text">The loop's label, empty when it has none.</param>
+    /// <param name="fontSize">Font size in CSS pixels.</param>
+    /// <returns>The clearance in CSS pixels, measured from the box's right edge.</returns>
+    public static double SelfLoopReserve(GraphEdgePaint paint, string text, double fontSize)
+    {
+        ArgumentNullException.ThrowIfNull(paint);
+        ArgumentNullException.ThrowIfNull(text);
+
+        double label = text.Length == 0
+            ? 0
+            : paint.EndLabelGap + LabelBoxSize(text, paint, fontSize).Width;
+        return (paint.SelfLoopBulge * CurveExtentFraction) + label + paint.LabelClearance;
     }
 
     /// <summary>The rightmost x a self-loop's curve reaches.</summary>
@@ -273,27 +306,86 @@ public static class GraphEdgePainter
     /// <summary>How far a cubic with both control points at the bulge actually reaches.</summary>
     private const double CurveExtentFraction = 0.75;
 
+    /// <summary>
+    /// Where a mid-edge label is centred: the middle of the route, except that a route leaving a
+    /// self-looping box starts inside that box's reserved loop band, so the label is pushed clear
+    /// of the band rather than sharing it with the loop's own label.
+    /// </summary>
+    /// <param name="text">The label text.</param>
+    /// <param name="points">The clipped route, source end first.</param>
+    /// <param name="source">The source box, which owns the reserved band.</param>
+    /// <param name="paint">Supplies the label padding and clearance.</param>
+    /// <param name="fontSize">Font size in CSS pixels.</param>
+    /// <returns>The label's anchor point.</returns>
+    public static LayoutPoint MidLabelAnchor(
+        string text,
+        IReadOnlyList<LayoutPoint> points,
+        PlacedNode source,
+        GraphEdgePaint paint,
+        double fontSize)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(points);
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(paint);
+
+        LayoutPoint anchor = GraphGeometry.MidPoint(points);
+        if (source.RightReserve <= 0)
+        {
+            return anchor;
+        }
+
+        double half = LabelBoxSize(text, paint, fontSize).Width / 2;
+        double clear = source.Left + source.Width + source.RightReserve + paint.LabelClearance;
+        return anchor.X - half >= clear || points[^1].X <= clear
+            ? anchor
+            : new LayoutPoint(clear + half, anchor.Y);
+    }
+
     /// <summary>Anchors of an edge's end labels; also used when sizing the canvas.</summary>
     /// <param name="points">The clipped route, source end first.</param>
     /// <param name="paint">Supplies the end-label gap.</param>
+    /// <param name="fontSize">Font size in CSS pixels.</param>
     /// <returns>The source-end and target-end anchors.</returns>
     public static (LayoutPoint Start, LayoutPoint End) EndLabelAnchors(
         IReadOnlyList<LayoutPoint> points,
-        GraphEdgePaint paint)
+        GraphEdgePaint paint,
+        double fontSize)
     {
         ArgumentNullException.ThrowIfNull(points);
         ArgumentNullException.ThrowIfNull(paint);
 
         return (
-            EndLabelAnchor(points[0], points.Count > 1 ? points[1] : points[0], paint),
-            EndLabelAnchor(points[^1], points.Count > 1 ? points[^2] : points[^1], paint));
+            EndLabelAnchor(points[0], points.Count > 1 ? points[1] : points[0], paint, fontSize),
+            EndLabelAnchor(points[^1], points.Count > 1 ? points[^2] : points[^1], paint, fontSize));
     }
 
+    /// <summary>
+    /// Places an end label a gap in from its endpoint and then a whole label off the line, on the
+    /// side the line's direction turned a quarter turn points to. Sitting beside the line rather
+    /// than on it is what keeps the label's opaque rect off the connector and off the marker glyph
+    /// the endpoint carries, which are both drawn before it.
+    /// </summary>
     private static LayoutPoint EndLabelAnchor(
         LayoutPoint endpoint,
         LayoutPoint inward,
-        GraphEdgePaint paint) =>
-        GraphGeometry.Along(endpoint, inward, paint.EndLabelGap);
+        GraphEdgePaint paint,
+        double fontSize)
+    {
+        LayoutPoint onLine = GraphGeometry.Along(endpoint, inward, paint.EndLabelGap);
+        double dx = inward.X - endpoint.X;
+        double dy = inward.Y - endpoint.Y;
+        double length = Math.Sqrt((dx * dx) + (dy * dy));
+        if (length == 0)
+        {
+            return onLine;
+        }
+
+        double offset =
+            (TextMetrics.LineHeight(fontSize) / 2) + paint.LabelPaddingY + paint.LabelClearance;
+        return new LayoutPoint(
+            onLine.X + (dy / length * offset), onLine.Y - (dx / length * offset));
+    }
 
     private static SvgBuilder StartGeometry(
         SvgBuilder svg,

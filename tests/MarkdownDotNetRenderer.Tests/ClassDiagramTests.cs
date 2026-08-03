@@ -273,6 +273,35 @@ public sealed class ClassDiagramTests
         Assert.True(lineTop - boxBottom >= glyph, $"endpoint {lineTop} is inside box {boxBottom}");
     }
 
+    [Fact]
+    public void Cardinality_Labels_Sit_Beside_The_Relation_Line()
+    {
+        XElement svg = RenderSvg("""
+            classDiagram
+                A "1" *-- "1" B
+            """);
+
+        XElement line = svg.Descendants(Svg + "line").Single(
+            element => element.Attribute("marker-start") is not null);
+        double lineX = Number(line, "x1");
+        double halfMarker = ClassTheme.Default.MarkerSize * ClassTheme.Default.Edge.StrokeWidth / 2;
+
+        // A label centred on the line would paint its opaque rect over the connector and over the
+        // glyph the endpoint carries, both of which are drawn before it.
+        Assert.All(
+            svg.Descendants(Svg + "g")
+                .Where(group => group.Attribute("class")?.Value == "mdnr-edge-label")
+                .Elements(Svg + "rect"),
+            rect =>
+            {
+                double left = Number(rect, "x");
+                double right = left + Number(rect, "width");
+                Assert.True(
+                    right <= lineX - halfMarker || left >= lineX + halfMarker,
+                    $"label {left}..{right} covers the line at {lineX}");
+            });
+    }
+
     private static double Number(XElement element, string name) =>
         double.Parse(
             element.Attribute(name)!.Value,

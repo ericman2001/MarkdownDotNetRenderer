@@ -176,6 +176,39 @@ public sealed class ErDiagramTests
         Assert.Equal(marker, ErLayoutEngine.Marker(cardinality));
 
     [Fact]
+    public void A_Relationship_Label_Leaves_Both_Crows_Foot_Glyphs_Visible()
+    {
+        XElement svg = RenderSvg("""
+            erDiagram
+                DOCUMENT ||--o{ BLOCK : contains
+            """);
+
+        XElement line = svg.Descendants(Svg + "line").Single();
+        double glyph = GraphMarkers.EndpointInset(
+            GraphMarker.ErExactlyOne, ErTheme.Default.MarkerSize, ErTheme.Default.Edge.StrokeWidth);
+
+        // Both glyphs are drawn behind their endpoint, i.e. inwards along the line, and the label's
+        // opaque rect is painted after them.
+        double glyphTop = Number(line, "y1") - glyph;
+        double glyphBottom = Number(line, "y2") + glyph;
+        XElement label = svg
+            .Descendants(Svg + "g")
+            .Single(group => group.Attribute("class")?.Value == "mdnr-edge-label")
+            .Element(Svg + "rect")!;
+        double top = Number(label, "y");
+        double bottom = top + Number(label, "height");
+
+        Assert.True(top >= Number(line, "y1"), $"label top {top} covers the start glyph");
+        Assert.True(bottom <= Number(line, "y2"), $"label bottom {bottom} covers the end glyph");
+        Assert.True(glyphTop < top && glyphBottom > bottom);
+    }
+
+    private static double Number(XElement element, string name) =>
+        double.Parse(
+            element.Attribute(name)!.Value,
+            System.Globalization.CultureInfo.InvariantCulture);
+
+    [Fact]
     public void Repeated_Renders_Are_Byte_Identical()
     {
         var renderer = new ErRenderer();

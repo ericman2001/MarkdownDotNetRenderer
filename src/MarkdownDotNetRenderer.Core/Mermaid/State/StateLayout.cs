@@ -121,7 +121,7 @@ public static class StateLayoutEngine
         }
 
         GraphPlacementResult placement = GraphLayoutAdapter.Compute(
-            specs,
+            GraphCanvas.WithSelfLoopReserves(specs, edges, theme.Edge, fontSize),
             edges,
             model.Direction,
             GraphCanvas.WithLabelledLayerGap(

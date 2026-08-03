@@ -131,7 +131,7 @@ public static class ErLayoutEngine
         }
 
         GraphPlacementResult placement = GraphLayoutAdapter.Compute(
-            specs,
+            GraphCanvas.WithSelfLoopReserves(specs, edges, theme.Edge, fontSize),
             edges,
             model.Direction,
             GraphCanvas.WithLabelledLayerGap(
