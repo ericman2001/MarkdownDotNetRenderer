@@ -216,9 +216,7 @@ public static class GraphEdgePainter
                 edge.Edge.Label is { Length: > 0 } label
                     ? ClearOfBoxes(
                         label,
-                        Beside(label, GraphGeometry.MidPoint(points), points[0], points[^1]),
-                        points[0],
-                        points[^1])
+                        Beside(label, GraphGeometry.MidPoint(points), points[0], points[^1]))
                     : null,
                 points[^1]),
             EndLabelAnchor(edge.Edge.StartLabel, points[0], points[1], edge.Edge.StartMarkerInset),
@@ -283,12 +281,12 @@ public static class GraphEdgePainter
 
             // A route that runs at an angle leaves the label beside it still catching the corner of
             // the box it points at, so it is pushed further off the line until it is clear.
-            return ClearOfBoxes(text, anchor, endpoint, inward);
+            return ClearOfBoxes(text, anchor);
         }
 
-        // Nudges a label further along the normal it was pushed along until its rect no longer
-        // overlaps either box, whose text it would otherwise erase.
-        LayoutPoint? ClearOfBoxes(string text, LayoutPoint? anchor, LayoutPoint from, LayoutPoint to)
+        // Nudges a label out of either box it still overlaps, whose text it would otherwise erase,
+        // taking whichever of the four ways out moves it least.
+        LayoutPoint? ClearOfBoxes(string text, LayoutPoint? anchor)
         {
             if (anchor is not { } at)
             {
@@ -296,23 +294,25 @@ public static class GraphEdgePainter
             }
 
             NodeSize label = LabelBoxSize(text, paint, fontSize);
-            (double normalX, double normalY) = Normal(from, to);
+            double halfWidth = (label.Width / 2) + paint.LabelClearance;
+            double halfHeight = (label.Height / 2) + paint.LabelClearance;
             foreach (PlacedNode box in new[] { source, target })
             {
-                double overlapX = Math.Min(at.X + (label.Width / 2), box.Left + box.Width) -
-                    Math.Max(at.X - (label.Width / 2), box.Left);
-                double overlapY = Math.Min(at.Y + (label.Height / 2), box.Top + box.Height) -
-                    Math.Max(at.Y - (label.Height / 2), box.Top);
-                if (overlapX <= 0 || overlapY <= 0)
+                if (at.X + halfWidth <= box.Left || at.X - halfWidth >= box.Left + box.Width ||
+                    at.Y + halfHeight <= box.Top || at.Y - halfHeight >= box.Top + box.Height)
                 {
                     continue;
                 }
 
-                at = Math.Abs(normalX) > Math.Abs(normalY)
-                    ? new LayoutPoint(
-                        at.X + (Math.Sign(normalX) * (overlapX + paint.LabelClearance)), at.Y)
-                    : new LayoutPoint(
-                        at.X, at.Y + (Math.Sign(normalY) * (overlapY + paint.LabelClearance)));
+                double left = box.Left - halfWidth;
+                double right = box.Left + box.Width + halfWidth;
+                double up = box.Top - halfHeight;
+                double down = box.Top + box.Height + halfHeight;
+                double byX = Math.Abs(left - at.X) <= Math.Abs(right - at.X) ? left : right;
+                double byY = Math.Abs(up - at.Y) <= Math.Abs(down - at.Y) ? up : down;
+                at = Math.Abs(byX - at.X) <= Math.Abs(byY - at.Y)
+                    ? new LayoutPoint(byX, at.Y)
+                    : new LayoutPoint(at.X, byY);
             }
 
             return at;

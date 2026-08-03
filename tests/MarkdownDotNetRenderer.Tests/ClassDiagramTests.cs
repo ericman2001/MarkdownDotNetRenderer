@@ -307,6 +307,21 @@ public sealed class ClassDiagramTests
     {
         XElement svg = RenderSvg("""
             classDiagram
+                direction TD
+                class IDiagramRenderer {
+                    <<interface>>
+                    +DiagramTypes
+                    +Render(source, options)
+                }
+                class FlowchartRenderer {
+                    -LayeredLayout layout
+                    +Render(source, options)
+                }
+                class DiagramRenderResult {
+                    +bool Success
+                }
+                IDiagramRenderer <|.. FlowchartRenderer
+                FlowchartRenderer ..> DiagramRenderResult : returns
                 FlowchartRenderer "1" *-- "1" LayeredLayout
                 Base "1" o-- "*" Twig
             """);
