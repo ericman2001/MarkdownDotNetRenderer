@@ -44,6 +44,10 @@ public sealed record GraphNodeSpec(string Id, double Width, double Height, ClipS
 /// <param name="EndMarkerId">Marker id drawn at the target end, or <see langword="null"/>.</param>
 /// <param name="StartLabel">Small label near the source end (a cardinality), or <see langword="null"/>.</param>
 /// <param name="EndLabel">Small label near the target end (a cardinality), or <see langword="null"/>.</param>
+/// <param name="StartMarkerInset">How far the source end stops short of its box so the start
+/// glyph is drawn outside the box rather than underneath it; see
+/// <see cref="GraphMarkers.EndpointInset"/>.</param>
+/// <param name="EndMarkerInset">The same clearance for the target end.</param>
 public sealed record GraphEdgeSpec(
     string SourceId,
     string TargetId,
@@ -52,7 +56,9 @@ public sealed record GraphEdgeSpec(
     string? StartMarkerId = null,
     string? EndMarkerId = null,
     string? StartLabel = null,
-    string? EndLabel = null);
+    string? EndLabel = null,
+    double StartMarkerInset = 0,
+    double EndMarkerInset = 0);
 
 /// <summary>A placed box.</summary>
 /// <param name="Id">The node id.</param>

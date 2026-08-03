@@ -81,6 +81,19 @@ public static class GraphMarkers
     }
 
     /// <summary>
+    /// How far a line carrying this glyph must stop short of the box it points at so the glyph is
+    /// drawn beside the box instead of underneath it. Every glyph except
+    /// <see cref="GraphMarker.Arrow"/> is drawn entirely behind its reference point, so it needs
+    /// the glyph's full length; the arrow's tip sits on the endpoint and needs none.
+    /// </summary>
+    /// <param name="marker">The glyph.</param>
+    /// <param name="size">Marker width and height, in stroke-width units.</param>
+    /// <param name="strokeWidth">Stroke width of the line, which scales the marker.</param>
+    /// <returns>The clearance in CSS pixels.</returns>
+    public static double EndpointInset(GraphMarker marker, double size, double strokeWidth) =>
+        marker == GraphMarker.Arrow ? 0 : size * strokeWidth;
+
+    /// <summary>
     /// Writes a <c>&lt;defs&gt;</c> block defining the requested glyphs, in
     /// <see cref="GraphMarker"/> order and without duplicates so the output is deterministic
     /// whatever order the caller collected them in.

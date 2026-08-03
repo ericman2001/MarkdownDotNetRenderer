@@ -160,11 +160,17 @@ public static class ClassLayoutEngine
                 startMarker is { } startId ? GraphMarkers.Id(idPrefix, startId) : null,
                 endMarker is { } endId ? GraphMarkers.Id(idPrefix, endId) : null,
                 relation.SourceCardinality,
-                relation.TargetCardinality));
+                relation.TargetCardinality,
+                Inset(startMarker, theme),
+                Inset(endMarker, theme)));
         }
 
-        GraphPlacementResult placement =
-            GraphLayoutAdapter.Compute(specs, edges, model.Direction, metrics);
+        GraphPlacementResult placement = GraphLayoutAdapter.Compute(
+            specs,
+            edges,
+            model.Direction,
+            GraphCanvas.WithLabelledLayerGap(
+                metrics, edges, model.Direction, theme.Edge, fontSize));
         if (!placement.Success || placement.Placement is null)
         {
             return new ClassLayoutResult(false, null, placement.FailureMessage);
@@ -216,6 +222,11 @@ public static class ClassLayoutEngine
         ClassRelationKind.Association or ClassRelationKind.Dependency => GraphMarker.Arrow,
         _ => null,
     };
+
+    /// <summary>Clearance an end needs so its glyph is drawn beside the box, not under it.</summary>
+    private static double Inset(GraphMarker? marker, ClassTheme theme) => marker is { } glyph
+        ? GraphMarkers.EndpointInset(glyph, theme.MarkerSize, theme.Edge.StrokeWidth)
+        : 0;
 
     /// <summary>Whether a relation kind is drawn with a dashed line.</summary>
     /// <param name="kind">The relation kind.</param>

@@ -113,16 +113,20 @@ public static class GanttLayoutEngine
     /// <param name="fontSize">Label font size in CSS pixels.</param>
     /// <param name="metrics">Geometry to use.</param>
     /// <param name="wrapChars">Soft wrap width, in characters, for the title.</param>
+    /// <param name="axisFontSize">Font size the axis date labels are drawn at, which decides how
+    /// far the first and last tick's centred label reaches past the dated area.</param>
     /// <returns>The laid-out chart.</returns>
     public static GanttChartLayout Compute(
         GanttModel model,
         double fontSize,
         GanttMetrics metrics,
-        int wrapChars)
+        int wrapChars,
+        double axisFontSize)
     {
         ArgumentNullException.ThrowIfNull(model);
         ArgumentNullException.ThrowIfNull(metrics);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(wrapChars);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(axisFontSize);
 
         double lineHeight = TextMetrics.LineHeight(fontSize);
         DateOnly start = model.Start;
@@ -146,8 +150,15 @@ public static class GanttLayoutEngine
             ? 0
             : (titleLines.Count * lineHeight) + metrics.TitleGap;
 
+        // Tick labels are centred on their tick, so the outermost ones reach half a label past the
+        // dated area at both ends; the chart is inset and widened to keep them inside the canvas.
+        double axisLabelReach = TextMetrics.MeasureWidth(
+            start.ToString(GanttParser.IsoDateFormat, CultureInfo.InvariantCulture),
+            axisFontSize) / 2;
+
         double labelLeft = metrics.Margin;
-        double chartLeft = labelLeft + labelWidth + metrics.LabelGap;
+        double chartLeft = Math.Max(
+            labelLeft + labelWidth + metrics.LabelGap, metrics.Margin + axisLabelReach);
         double chartRight = chartLeft + metrics.ChartWidth;
         double axisY = metrics.Margin + titleHeight + metrics.AxisHeight;
 
@@ -185,7 +196,9 @@ public static class GanttLayoutEngine
                 X(date), date.ToString(GanttParser.IsoDateFormat, CultureInfo.InvariantCulture)));
         }
 
-        double width = chartRight + metrics.Margin;
+        double width = Math.Max(
+            chartRight + metrics.Margin,
+            ticks[^1].X + axisLabelReach + metrics.Margin);
         double height = y + metrics.Margin;
 
         return new GanttChartLayout(

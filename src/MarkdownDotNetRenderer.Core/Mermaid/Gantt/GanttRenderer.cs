@@ -81,8 +81,8 @@ public sealed class GanttRenderer : IDiagramRenderer
 
         GanttModel model = parsed.Model;
         double fontSize = DiagramDefaults.ResolveFontSize(options);
-        GanttChartLayout layout =
-            GanttLayoutEngine.Compute(model, fontSize, _metrics, TitleWrapChars);
+        GanttChartLayout layout = GanttLayoutEngine.Compute(
+            model, fontSize, _metrics, TitleWrapChars, fontSize * _theme.AxisFontScale);
 
         string altText = string.Create(
             CultureInfo.InvariantCulture,

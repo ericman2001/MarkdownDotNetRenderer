@@ -239,11 +239,9 @@ public static class StateParser
             }
 
             byId[id] = nodes.Count;
-            nodes.Add(new StateNode(
-                id,
-                label ?? (kind == StateKind.Normal ? id : string.Empty),
-                kind,
-                nodes.Count));
+            // An implicitly created state keeps an empty label so a 'state "..." as id' alias
+            // appearing later still wins; the layout falls back to the id when none arrives.
+            nodes.Add(new StateNode(id, label ?? string.Empty, kind, nodes.Count));
             return id;
         }
 

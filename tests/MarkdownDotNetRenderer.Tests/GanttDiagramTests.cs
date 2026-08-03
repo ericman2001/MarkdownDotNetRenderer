@@ -17,6 +17,7 @@
 using System.Xml.Linq;
 using MarkdownDotNetRenderer.Mermaid;
 using MarkdownDotNetRenderer.Mermaid.Gantt;
+using MarkdownDotNetRenderer.Svg;
 
 namespace MarkdownDotNetRenderer.Tests;
 
@@ -132,7 +133,8 @@ public sealed class GanttDiagramTests
             GanttParser.Parse(Simple).Model!,
             12,
             GanttMetrics.Default,
-            wrapChars: 48);
+            wrapChars: 48,
+            axisFontSize: 12 * GanttTheme.Default.AxisFontScale);
 
         Assert.Equal(layout.ChartLeft, layout.Bars[0].BarLeft, precision: 9);
         Assert.Equal(layout.ChartRight, layout.Bars[^1].BarLeft, precision: 9);
@@ -152,7 +154,8 @@ public sealed class GanttDiagramTests
             GanttParser.Parse(Simple).Model!,
             12,
             GanttMetrics.Default,
-            wrapChars: 48);
+            wrapChars: 48,
+            axisFontSize: 12 * GanttTheme.Default.AxisFontScale);
 
         Assert.NotEmpty(layout.Ticks);
         for (int i = 1; i < layout.Ticks.Count; i++)
@@ -215,7 +218,8 @@ public sealed class GanttDiagramTests
             GanttParser.Parse(Simple).Model!,
             12,
             GanttMetrics.Default,
-            wrapChars: 48);
+            wrapChars: 48,
+            axisFontSize: 12 * GanttTheme.Default.AxisFontScale);
 
         Assert.True(layout.ChartRight <= layout.Width);
         Assert.True(layout.RowsBottom <= layout.Height);
@@ -225,6 +229,29 @@ public sealed class GanttDiagramTests
             Assert.True(bar.BarLeft + bar.BarWidth <= layout.Width);
             Assert.True(bar.CenterY <= layout.Height);
         });
+    }
+
+    [Theory]
+    [InlineData("2026-01-05", "2d")]
+    [InlineData("2026-01-05", "8w")]
+    public void The_Outermost_Axis_Labels_Stay_Inside_The_Canvas(string start, string duration)
+    {
+        double axisFontSize = 12 * GanttTheme.Default.AxisFontScale;
+        GanttChartLayout layout = GanttLayoutEngine.Compute(
+            GanttParser.Parse($"""
+                gantt
+                    dateFormat YYYY-MM-DD
+                    section Only
+                    Task :t1, {start}, {duration}
+                """).Model!,
+            12,
+            GanttMetrics.Default,
+            wrapChars: 48,
+            axisFontSize);
+
+        double reach = TextMetrics.MeasureWidth(layout.Ticks[0].Label, axisFontSize) / 2;
+        Assert.True(layout.Ticks[0].X - reach >= 0);
+        Assert.True(layout.Ticks[^1].X + reach <= layout.Width);
     }
 
     [Fact]

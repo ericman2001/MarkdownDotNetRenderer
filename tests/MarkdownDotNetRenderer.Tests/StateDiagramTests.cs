@@ -194,6 +194,76 @@ public sealed class StateDiagramTests
     }
 
     [Fact]
+    public void An_Alias_Declared_After_The_State_Is_Used_Still_Names_It()
+    {
+        StateParseResult parsed = StateParser.Parse("""
+            stateDiagram-v2
+                [*] --> Idle
+                state "Waiting for input" as Idle
+            """);
+
+        Assert.True(parsed.Success);
+        Assert.Equal(
+            "Waiting for input", parsed.Model!.States.Single(state => state.Id == "Idle").Label);
+    }
+
+    [Fact]
+    public void A_Transition_Label_Sits_Clear_Of_The_States_It_Joins()
+    {
+        XElement svg = RenderSvg("""
+            stateDiagram-v2
+                direction LR
+                state "Waiting for input" as Idle
+                Idle --> Parsing : markdown arrives
+            """);
+
+        XElement label = svg
+            .Descendants(Svg + "g")
+            .Single(group => group.Attribute("class")?.Value == "mdnr-edge-label")
+            .Element(Svg + "rect")!;
+        double labelLeft = Number(label, "x");
+        double labelRight = labelLeft + Number(label, "width");
+
+        foreach (XElement box in svg
+            .Descendants(Svg + "g")
+            .Where(group => group.Attribute("class")?.Value.StartsWith(
+                "mdnr-state-node", StringComparison.Ordinal) == true)
+            .Elements(Svg + "rect"))
+        {
+            double boxLeft = Number(box, "x");
+            double boxRight = boxLeft + Number(box, "width");
+            Assert.True(
+                labelRight <= boxLeft || labelLeft >= boxRight,
+                $"label {labelLeft}..{labelRight} overlaps state box {boxLeft}..{boxRight}");
+        }
+    }
+
+    [Fact]
+    public void A_Self_Transition_And_Its_Label_Stay_Inside_The_Canvas()
+    {
+        DiagramRenderResult result = Render("""
+            stateDiagram-v2
+                [*] --> Idle
+                Idle --> Idle : loop back to itself
+            """);
+
+        Assert.True(result.Success);
+        XElement svg = XElement.Parse(result.SvgFragment!);
+        XElement label = svg
+            .Descendants(Svg + "g")
+            .Single(group => group.Attribute("class")?.Value == "mdnr-edge-label")
+            .Element(Svg + "rect")!;
+
+        Assert.True(Number(label, "x") >= 0);
+        Assert.True(Number(label, "x") + Number(label, "width") <= result.Width);
+    }
+
+    private static double Number(XElement element, string name) =>
+        double.Parse(
+            element.Attribute(name)!.Value,
+            System.Globalization.CultureInfo.InvariantCulture);
+
+    [Fact]
     public void Repeated_Renders_Are_Byte_Identical()
     {
         var renderer = new StateRenderer();

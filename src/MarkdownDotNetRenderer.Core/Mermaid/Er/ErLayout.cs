@@ -121,11 +121,21 @@ public static class ErLayoutEngine
                 relationship.Label,
                 relationship.Identifying ? GraphLineStyle.Solid : GraphLineStyle.Dashed,
                 GraphMarkers.Id(idPrefix, start),
-                GraphMarkers.Id(idPrefix, end)));
+                GraphMarkers.Id(idPrefix, end),
+                StartLabel: null,
+                EndLabel: null,
+                // Crow's-foot glyphs sit behind their endpoint, so the line stops short of the box
+                // by the glyph's length instead of being drawn underneath it.
+                GraphMarkers.EndpointInset(start, theme.MarkerSize, theme.Edge.StrokeWidth),
+                GraphMarkers.EndpointInset(end, theme.MarkerSize, theme.Edge.StrokeWidth)));
         }
 
-        GraphPlacementResult placement =
-            GraphLayoutAdapter.Compute(specs, edges, model.Direction, metrics);
+        GraphPlacementResult placement = GraphLayoutAdapter.Compute(
+            specs,
+            edges,
+            model.Direction,
+            GraphCanvas.WithLabelledLayerGap(
+                metrics, edges, model.Direction, theme.Edge, fontSize));
         if (!placement.Success || placement.Placement is null)
         {
             return new ErLayoutResult(false, null, placement.FailureMessage);

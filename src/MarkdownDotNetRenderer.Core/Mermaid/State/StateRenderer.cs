@@ -92,26 +92,29 @@ public sealed class StateRenderer : IDiagramRenderer
 
         string altText =
             $"state diagram with {model.States.Count} states and {model.Transitions.Count} transitions";
-        string svg = Emit(layout.Layout, options, fontSize, idPrefix, altText);
+        GraphCanvas canvas = GraphCanvas.Measure(
+            layout.Layout.Placement, _theme.Edge, fontSize, _metrics.Margin);
+        string svg = Emit(layout.Layout, canvas, options, fontSize, idPrefix, altText);
 
         return new DiagramRenderResult(
             true,
             svg,
-            layout.Layout.Width,
-            layout.Layout.Height,
+            canvas.Width,
+            canvas.Height,
             altText,
             parsed.Diagnostics);
     }
 
     private string Emit(
         StateDiagramLayout layout,
+        GraphCanvas canvas,
         RenderOptions options,
         double fontSize,
         string idPrefix,
         string altText)
     {
         var svg = new SvgBuilder();
-        DiagramSvg.StartRoot(svg, layout.Width, layout.Height, options, altText, "mdnr-state");
+        DiagramSvg.StartRoot(svg, canvas.Width, canvas.Height, options, altText, "mdnr-state");
 
         GraphMarkers.EmitDefs(
             svg,
@@ -121,6 +124,8 @@ public sealed class StateRenderer : IDiagramRenderer
             _theme.Edge.StrokeWidth,
             _theme.StateFill,
             _theme.MarkerSize);
+
+        canvas.StartShift(svg);
 
         svg.StartElement("g").Attribute("class", "mdnr-transitions");
         foreach (PlacedEdge edge in layout.Placement.Edges)
@@ -147,6 +152,8 @@ public sealed class StateRenderer : IDiagramRenderer
         }
 
         svg.EndElement();
+
+        canvas.EndShift(svg);
 
         svg.EndElement();
         return svg.ToString();

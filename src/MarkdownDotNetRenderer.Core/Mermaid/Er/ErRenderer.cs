@@ -91,26 +91,29 @@ public sealed class ErRenderer : IDiagramRenderer
 
         string altText = $"entity relationship diagram with {model.Entities.Count} entities and " +
             $"{model.Relationships.Count} relationships";
-        string svg = Emit(layout.Layout, options, fontSize, idPrefix, altText);
+        GraphCanvas canvas = GraphCanvas.Measure(
+            layout.Layout.Placement, _theme.Edge, fontSize, _metrics.Margin);
+        string svg = Emit(layout.Layout, canvas, options, fontSize, idPrefix, altText);
 
         return new DiagramRenderResult(
             true,
             svg,
-            layout.Layout.Width,
-            layout.Layout.Height,
+            canvas.Width,
+            canvas.Height,
             altText,
             parsed.Diagnostics);
     }
 
     private string Emit(
         ErDiagramLayout layout,
+        GraphCanvas canvas,
         RenderOptions options,
         double fontSize,
         string idPrefix,
         string altText)
     {
         var svg = new SvgBuilder();
-        DiagramSvg.StartRoot(svg, layout.Width, layout.Height, options, altText, "mdnr-er");
+        DiagramSvg.StartRoot(svg, canvas.Width, canvas.Height, options, altText, "mdnr-er");
 
         GraphMarkers.EmitDefs(
             svg,
@@ -120,6 +123,8 @@ public sealed class ErRenderer : IDiagramRenderer
             _theme.Edge.StrokeWidth,
             _theme.BoxFill,
             _theme.MarkerSize);
+
+        canvas.StartShift(svg);
 
         svg.StartElement("g").Attribute("class", "mdnr-relationships");
         foreach (PlacedEdge edge in layout.Placement.Edges)
@@ -145,6 +150,8 @@ public sealed class ErRenderer : IDiagramRenderer
         }
 
         svg.EndElement();
+
+        canvas.EndShift(svg);
 
         svg.EndElement();
         return svg.ToString();

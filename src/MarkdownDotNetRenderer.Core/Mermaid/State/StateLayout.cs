@@ -120,8 +120,12 @@ public static class StateLayoutEngine
                 EndMarkerId: transition.IsNoteLink ? null : arrow));
         }
 
-        GraphPlacementResult placement =
-            GraphLayoutAdapter.Compute(specs, edges, model.Direction, metrics);
+        GraphPlacementResult placement = GraphLayoutAdapter.Compute(
+            specs,
+            edges,
+            model.Direction,
+            GraphCanvas.WithLabelledLayerGap(
+                metrics, edges, model.Direction, theme.Edge, fontSize));
         if (!placement.Success || placement.Placement is null)
         {
             return new StateLayoutResult(false, null, placement.FailureMessage);

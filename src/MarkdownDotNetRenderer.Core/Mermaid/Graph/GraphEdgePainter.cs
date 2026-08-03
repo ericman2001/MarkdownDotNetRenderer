@@ -35,6 +35,8 @@ namespace MarkdownDotNetRenderer.Mermaid.Graph;
 /// <param name="LabelPaddingX">Horizontal padding of the backing rect behind an edge label.</param>
 /// <param name="LabelPaddingY">Vertical padding of the backing rect behind an edge label.</param>
 /// <param name="EndLabelGap">Gap between an end label (a cardinality) and its endpoint.</param>
+/// <param name="LabelClearance">Space left either side of a mid-edge label's backing rect, which
+/// sets the smallest layer gap a labelled edge can be laid out with.</param>
 public sealed record GraphEdgePaint(
     string Stroke = "#55637a",
     double StrokeWidth = 1.5,
@@ -46,7 +48,8 @@ public sealed record GraphEdgePaint(
     string LabelBackground = "#ffffff",
     double LabelPaddingX = 4,
     double LabelPaddingY = 2,
-    double EndLabelGap = 10)
+    double EndLabelGap = 10,
+    double LabelClearance = 8)
 {
     /// <summary>The defaults shared by the phase-4 graph-shaped diagram types.</summary>
     public static GraphEdgePaint Default { get; } = new();
@@ -89,7 +92,8 @@ public static class GraphEdgePainter
         if (edge.IsSelfLoop)
         {
             // Control points are offset horizontally only, so the loop stays inside the box's own
-            // vertical band and can never overflow the canvas.
+            // vertical band; it does reach past the box on the x axis, which is why the canvas is
+            // widened for it (see GraphCanvas).
             double loopX = source.Left + source.Width;
             double loopStartY = source.CenterY - (source.Height / 4);
             double loopEndY = source.CenterY + (source.Height / 4);
@@ -156,9 +160,7 @@ public static class GraphEdgePainter
         }
 
         List<LayoutPoint> points = edge.IsSelfLoop
-            ? [new LayoutPoint(
-                source.Left + source.Width + paint.SelfLoopBulge + paint.EndLabelGap,
-                source.CenterY)]
+            ? [SelfLoopLabelAnchor(source, paint)]
             : Route(edge, source, target, paint);
 
         svg.StartElement("g")
@@ -172,27 +174,16 @@ public static class GraphEdgePainter
             EmitBoxedText(svg, edge.Edge.Label!, anchor, paint, options, fontSize);
         }
 
+        (LayoutPoint startAnchor, LayoutPoint endAnchor) = EndLabelAnchors(points, paint);
+
         if (!string.IsNullOrEmpty(edge.Edge.StartLabel))
         {
-            EmitBoxedText(
-                svg,
-                edge.Edge.StartLabel!,
-                EndLabelAnchor(points[0], points.Count > 1 ? points[1] : points[0], paint),
-                paint,
-                options,
-                fontSize);
+            EmitBoxedText(svg, edge.Edge.StartLabel!, startAnchor, paint, options, fontSize);
         }
 
         if (!string.IsNullOrEmpty(edge.Edge.EndLabel))
         {
-            EmitBoxedText(
-                svg,
-                edge.Edge.EndLabel!,
-                EndLabelAnchor(
-                    points[^1], points.Count > 1 ? points[^2] : points[^1], paint),
-                paint,
-                options,
-                fontSize);
+            EmitBoxedText(svg, edge.Edge.EndLabel!, endAnchor, paint, options, fontSize);
         }
 
         svg.EndElement();
@@ -221,7 +212,8 @@ public static class GraphEdgePainter
             source.CenterX, source.CenterY, source.Width, source.Height, source.Shape, firstInner);
         if (edge.Edge.StartMarkerId is { Length: > 0 })
         {
-            start = GraphGeometry.Along(start, firstInner, paint.ArrowInset);
+            start = GraphGeometry.Along(
+                start, firstInner, paint.ArrowInset + edge.Edge.StartMarkerInset);
         }
 
         points[0] = start;
@@ -231,11 +223,70 @@ public static class GraphEdgePainter
             target.CenterX, target.CenterY, target.Width, target.Height, target.Shape, lastInner);
         if (edge.Edge.EndMarkerId is { Length: > 0 })
         {
-            end = GraphGeometry.Along(end, lastInner, paint.ArrowInset);
+            end = GraphGeometry.Along(end, lastInner, paint.ArrowInset + edge.Edge.EndMarkerInset);
         }
 
         points[^1] = end;
         return points;
+    }
+
+    /// <summary>The size of the backing rect drawn behind a label of this text.</summary>
+    /// <param name="text">The label text.</param>
+    /// <param name="paint">Supplies the label padding.</param>
+    /// <param name="fontSize">Font size in CSS pixels.</param>
+    /// <returns>The rect's width and height.</returns>
+    public static NodeSize LabelBoxSize(string text, GraphEdgePaint paint, double fontSize)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(paint);
+
+        return new NodeSize(
+            TextMetrics.MeasureWidth(text, fontSize) + (2 * paint.LabelPaddingX),
+            TextMetrics.LineHeight(fontSize) + (2 * paint.LabelPaddingY));
+    }
+
+    /// <summary>Where a self-loop's label is centred.</summary>
+    /// <param name="source">The looping box.</param>
+    /// <param name="paint">Supplies the bulge and the end-label gap.</param>
+    /// <returns>The label's anchor point.</returns>
+    public static LayoutPoint SelfLoopLabelAnchor(PlacedNode source, GraphEdgePaint paint)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(paint);
+
+        return new LayoutPoint(
+            source.Left + source.Width + paint.SelfLoopBulge + paint.EndLabelGap, source.CenterY);
+    }
+
+    /// <summary>The rightmost x a self-loop's curve reaches.</summary>
+    /// <param name="source">The looping box.</param>
+    /// <param name="paint">Supplies the bulge.</param>
+    /// <returns>The rightmost x in CSS pixels.</returns>
+    public static double SelfLoopRight(PlacedNode source, GraphEdgePaint paint)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(paint);
+
+        return source.Left + source.Width + (paint.SelfLoopBulge * CurveExtentFraction);
+    }
+
+    /// <summary>How far a cubic with both control points at the bulge actually reaches.</summary>
+    private const double CurveExtentFraction = 0.75;
+
+    /// <summary>Anchors of an edge's end labels; also used when sizing the canvas.</summary>
+    /// <param name="points">The clipped route, source end first.</param>
+    /// <param name="paint">Supplies the end-label gap.</param>
+    /// <returns>The source-end and target-end anchors.</returns>
+    public static (LayoutPoint Start, LayoutPoint End) EndLabelAnchors(
+        IReadOnlyList<LayoutPoint> points,
+        GraphEdgePaint paint)
+    {
+        ArgumentNullException.ThrowIfNull(points);
+        ArgumentNullException.ThrowIfNull(paint);
+
+        return (
+            EndLabelAnchor(points[0], points.Count > 1 ? points[1] : points[0], paint),
+            EndLabelAnchor(points[^1], points.Count > 1 ? points[^2] : points[^1], paint));
     }
 
     private static LayoutPoint EndLabelAnchor(
@@ -281,8 +332,9 @@ public static class GraphEdgePainter
         RenderOptions options,
         double fontSize)
     {
-        double width = TextMetrics.MeasureWidth(text, fontSize) + (2 * paint.LabelPaddingX);
-        double height = TextMetrics.LineHeight(fontSize) + (2 * paint.LabelPaddingY);
+        NodeSize box = LabelBoxSize(text, paint, fontSize);
+        double width = box.Width;
+        double height = box.Height;
 
         svg.StartElement("rect")
             .Attribute("x", anchor.X - (width / 2))

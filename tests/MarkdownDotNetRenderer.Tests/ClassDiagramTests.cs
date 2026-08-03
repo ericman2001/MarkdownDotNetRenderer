@@ -247,6 +247,38 @@ public sealed class ClassDiagramTests
     }
 
     [Fact]
+    public void A_Composition_Diamond_Is_Drawn_Beside_Its_Class_Box()
+    {
+        XElement svg = RenderSvg("""
+            classDiagram
+                A "1" *-- "1" B
+            """);
+
+        XElement line = svg
+            .Descendants(Svg + "line")
+            .Single(element => element.Attribute("marker-start") is not null);
+        double lineTop = Number(line, "y1");
+        double boxBottom = svg
+            .Descendants(Svg + "g")
+            .Where(group => group.Attribute("data-id")?.Value == "A")
+            .Elements(Svg + "rect")
+            .Max(rect => Number(rect, "y") + Number(rect, "height"));
+
+        // The glyph is drawn behind its endpoint, so the endpoint must be a whole glyph clear of
+        // the box or the box's fill would hide it.
+        double glyph = GraphMarkers.EndpointInset(
+            GraphMarker.FilledDiamond,
+            ClassTheme.Default.MarkerSize,
+            ClassTheme.Default.Edge.StrokeWidth);
+        Assert.True(lineTop - boxBottom >= glyph, $"endpoint {lineTop} is inside box {boxBottom}");
+    }
+
+    private static double Number(XElement element, string name) =>
+        double.Parse(
+            element.Attribute(name)!.Value,
+            System.Globalization.CultureInfo.InvariantCulture);
+
+    [Fact]
     public void Repeated_Renders_Are_Byte_Identical()
     {
         var renderer = new ClassRenderer();
