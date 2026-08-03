@@ -403,7 +403,7 @@ public sealed class OdtDocumentWriterTests
     [Fact]
     public async Task Unsupported_Diagrams_Fall_Back_To_Verbatim_Preformatted_Source()
     {
-        const string source = "gantt\n    title Later\n";
+        const string source = "mindmap\n    root((Later))\n";
         var renderer = new MarkdownRenderer();
         RenderResult result = await renderer.RenderAsync(
             $"```mermaid\n{source}```\n",
@@ -417,8 +417,8 @@ public sealed class OdtDocumentWriterTests
             .ToList();
 
         Assert.Equal(2, paragraphs.Count);
-        Assert.Equal("gantt", paragraphs[0].Value);
-        Assert.Equal("title Later", paragraphs[1].Value);
+        Assert.Equal("mindmap", paragraphs[0].Value);
+        Assert.Equal("root((Later))", paragraphs[1].Value);
         Assert.Empty(document.Body().Descendants(Draw + "frame"));
 
         RenderDiagnostic diagnostic = Assert.Single(result.Diagnostics);

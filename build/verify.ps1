@@ -177,6 +177,42 @@ try {
             $SeqPackage.Dispose()
         }
 
+        Write-Host '==> Smoke run of native binary (phase 4 diagram gallery)'
+        $GalleryHtml = Join-Path $SmokeDir 'diagram-gallery.html'
+        $GalleryOdt = Join-Path $SmokeDir 'diagram-gallery.odt'
+        Invoke-Checked {
+            & $Binary --input 'samples/diagram-gallery.md' --output $GalleryHtml --format html
+        }
+        Invoke-Checked {
+            & $Binary --input 'samples/diagram-gallery.md' --output $GalleryOdt --format odt
+        }
+
+        $GalleryContent = Get-Content -Raw -Path $GalleryHtml
+        foreach ($needle in @('mdnr-pie', 'mdnr-state', 'mdnr-class', 'mdnr-er', 'mdnr-gantt')) {
+            if (-not $GalleryContent.Contains($needle)) {
+                throw "Gallery smoke render is missing expected content: $needle"
+            }
+        }
+
+        # The verbatim source only survives when a diagram fell back to a code block.
+        foreach ($needle in @('stateDiagram-v2', 'classDiagram', 'erDiagram', 'dateFormat')) {
+            if ($GalleryContent.Contains($needle)) {
+                throw "Gallery smoke render fell back to a code block for: $needle"
+            }
+        }
+
+        $GalleryPackage = [System.IO.Compression.ZipFile]::OpenRead($GalleryOdt)
+        try {
+            $GalleryNames = $GalleryPackage.Entries | ForEach-Object { $_.FullName }
+            # One picture part per diagram, so the highest-numbered one must exist too.
+            if ($GalleryNames -notcontains 'Pictures/diagram-5.svg') {
+                throw 'Gallery ODT smoke render is missing a diagram picture part.'
+            }
+        }
+        finally {
+            $GalleryPackage.Dispose()
+        }
+
         # Formats whose writers have not shipped must fail loudly rather than write a broken file.
         $DocxOut = Join-Path $SmokeDir 'out.docx'
         $DocxErrors = & $Binary --input 'samples/flowchart-demo.md' --output $DocxOut --format docx 2>&1

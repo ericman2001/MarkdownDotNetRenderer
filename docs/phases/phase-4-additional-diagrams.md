@@ -39,11 +39,11 @@ Priority weighs *frequency in real design documents* against *implementation cos
 
 | # | Type | Keywords | Layout need | Cost | Priority |
 | --- | --- | --- | --- | --- | --- |
-| 4a | Pie chart | `pie` | None (trigonometry) | Low | **1** |
-| 4b | State diagram | `stateDiagram`, `stateDiagram-v2` | Reuse `LayeredLayout` | Low–Medium | **2** |
-| 4c | Class diagram | `classDiagram` | Reuse `LayeredLayout` + compartment boxes | Medium | **3** |
-| 4d | ER diagram | `erDiagram` | Reuse `LayeredLayout` + crow's-foot markers | Medium | **4** |
-| 4e | Gantt chart | `gantt` | None (date → x scale) | Medium (date parsing) | **5** |
+| 4a | Pie chart | `pie` | None (trigonometry) | Low | **1** — implemented |
+| 4b | State diagram | `stateDiagram`, `stateDiagram-v2` | Reuse `LayeredLayout` | Low–Medium | **2** — implemented |
+| 4c | Class diagram | `classDiagram` | Reuse `LayeredLayout` + compartment boxes | Medium | **3** — implemented |
+| 4d | ER diagram | `erDiagram` | Reuse `LayeredLayout` + crow's-foot markers | Medium | **4** — implemented |
+| 4e | Gantt chart | `gantt` | None (date → x scale) | Medium (date parsing) | **5** — implemented |
 | 4f | Git graph | `gitGraph` | None (lane assignment) | Medium | 6 |
 | 4g | User journey | `journey` | None (table-like) | Low | 7 |
 | 4h | Mindmap | `mindmap` | Tree layout (new) | Medium | 8 |
@@ -107,21 +107,59 @@ notable as the first type needing layout code that flowcharts don't provide. `qu
 `xychart-beta`: axis scaling plus point/line/bar plotting, closer to charting than to graph
 layout.
 
+## Implemented subsets
+
+Sub-phases 4a–4e shipped together. Each lives in its own folder under
+`src/MarkdownDotNetRenderer.Core/Mermaid/` (`Pie/`, `State/`, `Class/`, `Er/`, `Gantt/`) as a
+parser, a model record set, a layout step, and an `IDiagramRenderer`, wired into the explicit
+registry in `MermaidRenderer.CreateBuiltInRenderers`. `Writers/` and `MarkdownRenderer` were not
+touched; `samples/diagram-gallery.md` is the fixture that carries all five through HTML, ODT, and
+the native smoke render in `build/verify.{sh,ps1}`.
+
+Three of the five are graph-shaped and reuse `LayeredLayout` through a shared adapter added in
+this phase (`Mermaid/Graph/`): `GraphLayoutAdapter` (specs → placement), `GraphEdgePainter`
+(routing, stroking, `marker-start`/`marker-end`, labels), `GraphMarkers` (the glyph set),
+`DiagramSvg` (root envelope) and `SvgText` (text/line emission). That is why the ER
+`marker-start` extension cost one shared field rather than a new edge emitter.
+
+| Type | Implemented | Deferred with `MERMAID003` |
+| --- | --- | --- |
+| `pie` | `title` (header-tail or its own line), `showData`, `"Label" : value` slices, legend with swatch + share (+ raw value under `showData`) | Any other statement. Empty charts and non-positive or non-numeric values fail with `MERMAID002` |
+| `stateDiagram`, `stateDiagram-v2` | `[*] --> S`, `S --> [*]`, `S1 --> S2 : label`, `state "Long name" as S`, `note … : text`, `direction TD`/`TB`/`LR` | Composite/nested states (contents rendered flat), concurrency (`--`), choice/fork/join pseudo-states, `classDef`/`style`/`click`, directives, `BT`/`RL` (mapped onto the supported axis) |
+| `classDiagram` (and `classDiagram-v2`) | `class Foo { … }` blocks, `Foo : +member` shorthand, `<<annotation>>`, all of `<|--`, `--|>`, `<|..`, `..|>`, `*--`, `--*`, `o--`, `--o`, `-->`, `<--`, `..>`, `<..`, `--`, `..`, with optional `: label` and quoted cardinalities on either end | Namespaces, `click`, `style`, `classDef`, callbacks, links, notes, accessibility directives, generics beyond plain text |
+| `erDiagram` | `A ||--o{ B : label` with all four cardinality glyph pairs on both ends, identifying (`--`) vs non-identifying (`..`, dashed), attribute blocks `A { string name PK "comment" }` | Directives and any unrecognized statement |
+| `gantt` | `title`, `dateFormat YYYY-MM-DD`, `section`, task lines `<name> :[tags,] [id,] <start>, <duration|end>` with ISO dates, `Nd`/`Nw` durations, `after <id>` dependencies, and the `done`/`active`/`crit`/`milestone` tags | `axisFormat`, non-ISO `dateFormat`, sub-day durations, `excludes`/`todayMarker`/`tickInterval`, and any other statement |
+
+### Layout decisions
+
+- **Pie** uses a fixed centre and radius; slice angles start at twelve o'clock and the final wedge
+  takes the remaining angle so floating-point rounding cannot leave a hairline gap. Colours come
+  from a fixed eight-entry palette indexed by slice order, so they never depend on hashing.
+- **State/class/ER** inherit the flowchart's layering, so ranking, column order, and edge routing
+  are already deterministic; box sizes come from `TextMetrics` over the widest line plus named
+  padding constants in each type's `*Theme`/`LayoutMetrics`.
+- **Gantt** maps dates to x with a single linear scale over the whole chart span — no solver. The
+  axis tick step is the smallest of a fixed candidate list (`1, 2, 7, 14, 28, 56, 112, 364` days)
+  that keeps ticks at least `MinTickSpacing` apart, so the axis is a pure function of the span.
+  All date handling is `DateOnly`/day arithmetic with `InvariantCulture`.
+- Zero-length spans (a milestone, or a `0d` task) collapse to a diamond or to a minimum bar width
+  rather than to an invisible or negative-width rectangle.
+
 ## Acceptance criteria (apply per sub-phase)
 
-- [ ] The type's fixtures render as readable SVG in **HTML** and in every office format that has
+- [x] The type's fixtures render as readable SVG in **HTML** and in every office format that has
       shipped (ODT from phase 2; DOCX once phase 5 lands) — with no changes to `MarkdownRenderer`
       or to any writer.
-- [ ] Every parsed element appears in the output (all labels present, all edges/slices/bars
+- [x] Every parsed element appears in the output (all labels present, all edges/slices/bars
       accounted for) and nothing overlaps illegibly.
-- [ ] Unsupported syntax **within** the type emits at most one `MERMAID003` per construct and
+- [x] Unsupported syntax **within** the type emits at most one `MERMAID003` per construct and
       still renders the rest; malformed source falls back to the code block with `MERMAID002`;
       **nothing throws**.
-- [ ] Diagram types not yet implemented continue to fall back with `MERMAID001`, verified by a
+- [x] Diagram types not yet implemented continue to fall back with `MERMAID001`, verified by a
       test enumerating the still-unsupported keywords.
-- [ ] SVG is well-formed XML, deterministic across repeated renders, and identical across
+- [x] SVG is well-formed XML, deterministic across repeated renders, and identical across
       Linux/macOS/Windows.
-- [ ] Tests follow [07-testing-strategy](../07-testing-strategy.md) (structural/invariant, never
+- [x] Tests follow [07-testing-strategy](../07-testing-strategy.md) (structural/invariant, never
       pixel), and `build/verify` still prints `PASS` on all three OSes (warning-free build, green
       tests, AOT smoke test).
-- [ ] The support table in `README.md` and the roadmap table above are updated in the same change.
+- [x] The support table in `README.md` and the roadmap table above are updated in the same change.

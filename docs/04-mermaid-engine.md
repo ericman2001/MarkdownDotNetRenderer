@@ -81,7 +81,7 @@ renders that as:
   reads as a code block.
 
 This guarantee is what allows shipping diagram types incrementally: a Phase 1 build handed a
-`gantt` chart still produces a complete, valid document.
+`mindmap` still produces a complete, valid document.
 
 Renderers themselves are also required to be total functions: every `IDiagramRenderer`
 implementation catches its own parse failures and returns `DiagramRenderResult.Failed(...)`,
@@ -307,10 +307,34 @@ Fragments (`loop`, `alt`, `opt`, `par`, `critical`, `break`, `rect`, `box`), act
 `title` are recognized but not drawn: each reports one `MERMAID003` per keyword and the messages
 inside still render in source order.
 
-## Phase 4+: other diagram types
+## Additional diagram types (implemented, phase 4)
 
-Each new diagram type is a new `IDiagramRenderer` registered in the built-in list; nothing
-else in the pipeline changes. `classDiagram`, `stateDiagram`, `pie`, and `gantt` are sketched in
-[phase 4](phases/phase-4-additional-diagrams.md); `pie` and `gantt` are also solver-free,
-while `classDiagram`/`stateDiagram` reuse the Phase 1 layered layout, which is why that code
-lives in `Mermaid/` shared space rather than inside `Flowchart/`.
+Five more types ship in [phase 4](phases/phase-4-additional-diagrams.md), each a folder under
+`Mermaid/` with the same parser / model / layout / renderer split and one line in the built-in
+registry. Nothing else in the pipeline changed, and no writer changed — which is the
+design-validation point the phase existed to prove.
+
+Three of them are graph-shaped, so they share one set of helpers rather than forking the
+flowchart: `Graph/GraphLayoutAdapter.cs` wraps `LayeredLayout` behind a `GraphNodeSpec` /
+`GraphEdgeSpec` pair, `Graph/GraphEdgePainter.cs` routes and strokes the edges (including
+`marker-start`, added for ER), `Graph/GraphMarkers.cs` owns the marker glyph set, and
+`Graph/DiagramSvg.cs` and `Graph/SvgText.cs` own the root envelope and text emission.
+
+| Type | Layout | Notes |
+| --- | --- | --- |
+| `pie` | Trigonometry, no solver | Fixed centre/radius; the last wedge takes the remaining angle so rounding can never leave a hairline gap. `PieTheme.Palette` is a fixed, colour-blind-friendly eight-colour cycle, indexed by slice order |
+| `stateDiagram`, `stateDiagram-v2` | `LayeredLayout` | `[*]` becomes the synthetic `__start`/`__end` nodes drawn as filled circles; ordinary states are stadiums, notes are dashed boxes |
+| `classDiagram` | `LayeredLayout` | Three compartments (name/annotation, attributes, operations) divided by lines, sized by the widest member; each relation kind maps to one marker end plus an optional dashed stroke |
+| `erDiagram` | `LayeredLayout` | Two-compartment entity boxes; each end of a relationship carries its own crow's-foot marker, so the four cardinality glyphs appear at both `marker-start` and `marker-end` |
+| `gantt` | Linear date → x scale, no solver | `DateOnly` arithmetic with `InvariantCulture` only; the axis tick step is picked from a fixed candidate list (`1, 2, 7, 14, 28, 56, 112, 364` days) as the smallest one that keeps ticks `MinTickSpacing` apart |
+
+Every one of these is a pure function of its model: no iterative solving, no dictionary
+enumeration order in the output, and all numbers formatted through `SvgBuilder.Number`, so
+repeated renders are byte-identical. The supported subsets and the constructs deferred with
+`MERMAID003` are recorded in
+[phase 4](phases/phase-4-additional-diagrams.md#implemented-subsets).
+
+## Phase 4f+: the remaining diagram types
+
+`gitGraph`, `journey`, `mindmap`, `quadrantChart`, and `xychart-beta` are still unimplemented and
+keep falling back with `MERMAID001`. Each is, again, a new folder plus one registry line.
