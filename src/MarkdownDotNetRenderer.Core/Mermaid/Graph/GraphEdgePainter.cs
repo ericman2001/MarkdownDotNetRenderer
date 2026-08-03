@@ -137,49 +137,50 @@ public static class GraphEdgePainter
         svg.EndElement();
     }
 
-    /// <summary>Emits one edge's mid-edge label and end labels, if it has any.</summary>
+    /// <summary>
+    /// Emits every edge's mid-edge label and end labels. Labels are placed for the diagram as a
+    /// whole rather than one edge at a time, because each is opaque and so has to clear the labels
+    /// already placed as well as the boxes.
+    /// </summary>
     /// <param name="svg">The builder to write to.</param>
-    /// <param name="edge">The placed edge.</param>
-    /// <param name="placement">The placement the edge belongs to.</param>
+    /// <param name="placement">The placement whose edges are labelled.</param>
     /// <param name="paint">Label paint and padding.</param>
     /// <param name="options">Render options supplying the font family.</param>
     /// <param name="fontSize">Font size in CSS pixels.</param>
     public static void EmitLabels(
         SvgBuilder svg,
-        PlacedEdge edge,
         GraphPlacement placement,
         GraphEdgePaint paint,
         RenderOptions options,
         double fontSize)
     {
         ArgumentNullException.ThrowIfNull(svg);
-        ArgumentNullException.ThrowIfNull(edge);
         ArgumentNullException.ThrowIfNull(placement);
         ArgumentNullException.ThrowIfNull(paint);
         ArgumentNullException.ThrowIfNull(options);
 
-        bool hasLabel = !string.IsNullOrEmpty(edge.Edge.Label);
-        bool hasEndLabels = !string.IsNullOrEmpty(edge.Edge.StartLabel) ||
-            !string.IsNullOrEmpty(edge.Edge.EndLabel);
-        if ((!hasLabel && !hasEndLabels) ||
-            !placement.NodesById.TryGetValue(edge.Edge.SourceId, out PlacedNode? source) ||
-            !placement.NodesById.TryGetValue(edge.Edge.TargetId, out PlacedNode? target))
+        IReadOnlyList<EdgeLabelAnchors> anchors = LabelAnchors(placement, paint, fontSize);
+        for (int i = 0; i < placement.Edges.Count; i++)
         {
-            return;
+            GraphEdgeSpec edge = placement.Edges[i].Edge;
+            if (string.IsNullOrEmpty(edge.Label) &&
+                string.IsNullOrEmpty(edge.StartLabel) &&
+                string.IsNullOrEmpty(edge.EndLabel))
+            {
+                continue;
+            }
+
+            svg.StartElement("g")
+                .Attribute("class", "mdnr-edge-label")
+                .Attribute("data-source", edge.SourceId)
+                .Attribute("data-target", edge.TargetId);
+
+            Emit(edge.Label, anchors[i].Mid);
+            Emit(edge.StartLabel, anchors[i].Start);
+            Emit(edge.EndLabel, anchors[i].End);
+
+            svg.EndElement();
         }
-
-        EdgeLabelAnchors anchors = LabelAnchors(edge, placement, paint, fontSize);
-
-        svg.StartElement("g")
-            .Attribute("class", "mdnr-edge-label")
-            .Attribute("data-source", edge.Edge.SourceId)
-            .Attribute("data-target", edge.Edge.TargetId);
-
-        Emit(edge.Edge.Label, anchors.Mid);
-        Emit(edge.Edge.StartLabel, anchors.Start);
-        Emit(edge.Edge.EndLabel, anchors.End);
-
-        svg.EndElement();
 
         void Emit(string? text, LayoutPoint? anchor)
         {
@@ -191,26 +192,67 @@ public static class GraphEdgePainter
     }
 
     /// <summary>
-    /// Where an edge's three labels are centred. Every label is placed off the line rather than on
-    /// it, and clear of every box in the diagram, because each is drawn with an opaque backing rect after the
-    /// connector, its marker glyphs, and the boxes themselves.
+    /// Where every edge's labels are centred, in edge order. Each label clears the labels placed
+    /// before it, so the result depends on that order and not on which edge is asked about.
+    /// </summary>
+    /// <param name="placement">The placement whose edges are labelled.</param>
+    /// <param name="paint">Supplies the gaps, padding, and clearance.</param>
+    /// <param name="fontSize">Font size in CSS pixels.</param>
+    /// <returns>One entry per placed edge, in the same order.</returns>
+    public static IReadOnlyList<EdgeLabelAnchors> LabelAnchors(
+        GraphPlacement placement,
+        GraphEdgePaint paint,
+        double fontSize)
+    {
+        ArgumentNullException.ThrowIfNull(placement);
+        ArgumentNullException.ThrowIfNull(paint);
+
+        var taken = new List<LabelRect>();
+        var anchors = new List<EdgeLabelAnchors>(placement.Edges.Count);
+        foreach (PlacedEdge edge in placement.Edges)
+        {
+            EdgeLabelAnchors placed = LabelAnchors(edge, placement, paint, fontSize, taken);
+            anchors.Add(placed);
+            Take(edge.Edge.Label, placed.Mid);
+            Take(edge.Edge.StartLabel, placed.Start);
+            Take(edge.Edge.EndLabel, placed.End);
+        }
+
+        return anchors;
+
+        void Take(string? text, LayoutPoint? anchor)
+        {
+            if (text is { Length: > 0 } && anchor is { } at)
+            {
+                taken.Add(LabelRect.Around(at, LabelBoxSize(text, paint, fontSize)));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Where one edge's three labels are centred. Every label is placed off the line rather than on
+    /// it, and clear of every box and of the labels already placed, because each is drawn with an
+    /// opaque backing rect after the connector, its glyphs, and the boxes themselves.
     /// </summary>
     /// <param name="edge">The placed edge.</param>
     /// <param name="placement">The placement the edge belongs to, which supplies its two boxes and
     /// every other box a label has to stay off.</param>
     /// <param name="paint">Supplies the gaps, padding, and clearance.</param>
     /// <param name="fontSize">Font size in CSS pixels.</param>
+    /// <param name="taken">Rects of the labels already placed, which this one clears too.</param>
     /// <returns>The anchor of each label the edge actually carries, or every anchor
     /// <see langword="null"/> when an end of the edge is not placed.</returns>
     public static EdgeLabelAnchors LabelAnchors(
         PlacedEdge edge,
         GraphPlacement placement,
         GraphEdgePaint paint,
-        double fontSize)
+        double fontSize,
+        IReadOnlyList<LabelRect> taken)
     {
         ArgumentNullException.ThrowIfNull(edge);
         ArgumentNullException.ThrowIfNull(placement);
         ArgumentNullException.ThrowIfNull(paint);
+        ArgumentNullException.ThrowIfNull(taken);
 
         if (!placement.NodesById.TryGetValue(edge.Edge.SourceId, out PlacedNode? source) ||
             !placement.NodesById.TryGetValue(edge.Edge.TargetId, out PlacedNode? target))
@@ -223,8 +265,12 @@ public static class GraphEdgePainter
             return SelfLoopLabelAnchors(edge.Edge, source, paint, fontSize);
         }
 
+        // An edge's own three labels are placed one after another for the same reason, so each is
+        // added to the obstacles as it is placed.
+        var obstacles = new List<LabelRect>(taken);
         List<LayoutPoint> points = Route(edge, source, target, paint);
-        return new EdgeLabelAnchors(
+        LayoutPoint? mid = Place(
+            edge.Edge.Label,
             ClearOfLoopBand(
                 edge.Edge.Label,
                 edge.Edge.Label is { Length: > 0 } label
@@ -232,9 +278,25 @@ public static class GraphEdgePainter
                         label,
                         Beside(label, GraphGeometry.MidPoint(points), points[0], points[^1]))
                     : null,
-                points[^1]),
-            EndLabelAnchor(edge.Edge.StartLabel, points[0], points[1], edge.Edge.StartMarkerInset),
+                points[^1]));
+        LayoutPoint? start = Place(
+            edge.Edge.StartLabel,
+            EndLabelAnchor(edge.Edge.StartLabel, points[0], points[1], edge.Edge.StartMarkerInset));
+        LayoutPoint? end = Place(
+            edge.Edge.EndLabel,
             EndLabelAnchor(edge.Edge.EndLabel, points[^1], points[^2], edge.Edge.EndMarkerInset));
+
+        return new EdgeLabelAnchors(mid, start, end);
+
+        LayoutPoint? Place(string? text, LayoutPoint? anchor)
+        {
+            if (text is { Length: > 0 } && anchor is { } at)
+            {
+                obstacles.Add(LabelRect.Around(at, LabelBoxSize(text, paint, fontSize)));
+            }
+
+            return anchor;
+        }
 
         // A label sitting beside the line, a whole label-height off it, never covers the line or
         // anything drawn along it.
@@ -298,9 +360,9 @@ public static class GraphEdgePainter
             return ClearOfBoxes(text, anchor);
         }
 
-        // Nudges a label out of any box it still overlaps, whose text it would otherwise erase,
+        // Nudges a label out of anything it still overlaps, whose text it would otherwise erase,
         // taking whichever of the four ways out moves it least. Its own two boxes come first, since
-        // clearing a bystander box must not push it back over them.
+        // clearing a bystander must not push it back over them.
         LayoutPoint? ClearOfBoxes(string text, LayoutPoint? anchor)
         {
             if (anchor is not { } at)
@@ -317,7 +379,7 @@ public static class GraphEdgePainter
             for (int pass = 0; pass < ClearancePasses; pass++)
             {
                 LayoutPoint before = at;
-                foreach (PlacedNode box in Obstacles())
+                foreach (LabelRect box in Obstacles())
                 {
                     if (at.X + halfWidth <= box.Left || at.X - halfWidth >= box.Left + box.Width ||
                         at.Y + halfHeight <= box.Top || at.Y - halfHeight >= box.Top + box.Height)
@@ -345,16 +407,21 @@ public static class GraphEdgePainter
             return at;
         }
 
-        IEnumerable<PlacedNode> Obstacles()
+        IEnumerable<LabelRect> Obstacles()
         {
-            yield return source;
-            yield return target;
+            yield return LabelRect.Of(source);
+            yield return LabelRect.Of(target);
             foreach (PlacedNode node in placement.Nodes)
             {
                 if (!ReferenceEquals(node, source) && !ReferenceEquals(node, target))
                 {
-                    yield return node;
+                    yield return LabelRect.Of(node);
                 }
+            }
+
+            foreach (LabelRect rect in obstacles)
+            {
+                yield return rect;
             }
         }
     }

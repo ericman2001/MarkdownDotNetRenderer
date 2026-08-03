@@ -134,11 +134,7 @@ public sealed class StateRenderer : IDiagramRenderer
 
         // Labels last so their opaque backing rects sit above the lines they interrupt.
         svg.StartElement("g").Attribute("class", "mdnr-transition-labels");
-        foreach (PlacedEdge edge in layout.Placement.Edges)
-        {
-            GraphEdgePainter.EmitLabels(
-                svg, edge, layout.Placement, _theme.Edge, options, fontSize);
-        }
+        GraphEdgePainter.EmitLabels(svg, layout.Placement, _theme.Edge, options, fontSize);
 
         svg.EndElement();
 

@@ -238,19 +238,29 @@ public sealed class ClassDiagramTests
                 Node "1" --> "*" Node : children
             """);
 
-        // A label clears every box, not just the two its own edge joins: an opaque backing rect
-        // over a bystander box punches a hole through its border and members.
+        // A label clears every box, not just the two its own edge joins, and every other label:
+        // an opaque backing rect over either erases what it covers.
         List<XElement> boxes = svg.Descendants(Svg + "g")
             .Where(group => group.Attribute("data-id") is not null)
             .Elements(Svg + "rect")
             .ToList();
-        Assert.All(
-            svg.Descendants(Svg + "g")
-                .Where(group => group.Attribute("class")?.Value == "mdnr-edge-label")
-                .Elements(Svg + "rect"),
-            label => Assert.All(boxes, box => Assert.False(
-                Overlaps(label, box),
-                $"label {label} covers box {box}")));
+        List<XElement> labels = svg.Descendants(Svg + "g")
+            .Where(group => group.Attribute("class")?.Value == "mdnr-edge-label")
+            .Elements(Svg + "rect")
+            .ToList();
+
+        Assert.All(labels, label => Assert.All(boxes, box => Assert.False(
+            Overlaps(label, box),
+            $"label {label} covers box {box}")));
+        for (int i = 0; i < labels.Count; i++)
+        {
+            for (int j = i + 1; j < labels.Count; j++)
+            {
+                Assert.False(
+                    Overlaps(labels[i], labels[j]),
+                    $"label {labels[i]} covers label {labels[j]}");
+            }
+        }
     }
 
     [Fact]

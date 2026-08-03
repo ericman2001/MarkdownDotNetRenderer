@@ -132,11 +132,7 @@ public sealed class ErRenderer : IDiagramRenderer
         svg.EndElement();
 
         svg.StartElement("g").Attribute("class", "mdnr-relationship-labels");
-        foreach (PlacedEdge edge in layout.Placement.Edges)
-        {
-            GraphEdgePainter.EmitLabels(
-                svg, edge, layout.Placement, _theme.Edge, options, fontSize);
-        }
+        GraphEdgePainter.EmitLabels(svg, layout.Placement, _theme.Edge, options, fontSize);
 
         svg.EndElement();
 

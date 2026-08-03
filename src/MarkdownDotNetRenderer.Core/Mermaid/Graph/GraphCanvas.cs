@@ -55,24 +55,20 @@ public sealed record GraphCanvas(double OffsetX, double OffsetY, double Width, d
         double top = margin;
         double bottom = placement.Height - margin;
 
-        foreach (PlacedEdge edge in placement.Edges)
+        IReadOnlyList<EdgeLabelAnchors> labels =
+            GraphEdgePainter.LabelAnchors(placement, paint, fontSize);
+        for (int i = 0; i < placement.Edges.Count; i++)
         {
-            if (!placement.NodesById.TryGetValue(edge.Edge.SourceId, out PlacedNode? source) ||
-                !placement.NodesById.TryGetValue(edge.Edge.TargetId, out PlacedNode? target))
-            {
-                continue;
-            }
-
-            if (edge.IsSelfLoop)
+            PlacedEdge edge = placement.Edges[i];
+            if (edge.IsSelfLoop &&
+                placement.NodesById.TryGetValue(edge.Edge.SourceId, out PlacedNode? source))
             {
                 right = Math.Max(right, GraphEdgePainter.SelfLoopRight(source, paint));
             }
 
-            EdgeLabelAnchors anchors =
-                GraphEdgePainter.LabelAnchors(edge, placement, paint, fontSize);
-            Include(edge.Edge.Label, anchors.Mid);
-            Include(edge.Edge.StartLabel, anchors.Start);
-            Include(edge.Edge.EndLabel, anchors.End);
+            Include(edge.Edge.Label, labels[i].Mid);
+            Include(edge.Edge.StartLabel, labels[i].Start);
+            Include(edge.Edge.EndLabel, labels[i].End);
         }
 
         double offsetX = Math.Max(0, margin - left);

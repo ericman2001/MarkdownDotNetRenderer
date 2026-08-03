@@ -327,6 +327,12 @@ render everywhere and keep the fragment self-contained, with no `<defs>` ids to 
 document. The line stops a glyph's length short of the box (`GraphMarkers.EndpointInset`) so the
 glyph is not painted underneath it.
 
+Edge labels are opaque, so they are placed for the diagram as a whole (`GraphEdgePainter.LabelAnchors`
+over a `GraphPlacement`) rather than one edge at a time: each label is nudged off every box and off
+the labels already placed, in edge order, by a bounded number of passes. Placing them per edge could
+only see that edge's two boxes, which let a cardinality land on a bystander box or on another edge's
+cardinality.
+
 | Type | Layout | Notes |
 | --- | --- | --- |
 | `pie` | Trigonometry, no solver | Fixed centre/radius; the last wedge takes the remaining angle so rounding can never leave a hairline gap. `PieTheme.Palette` is a fixed, colour-blind-friendly eight-colour cycle, indexed by slice order |
