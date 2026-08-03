@@ -69,6 +69,16 @@ public static class GraphEdgePainter
     /// <summary>How many times a label is swept out of the boxes it overlaps.</summary>
     private const int ClearancePasses = 4;
 
+    /// <summary>How many label-heights out an end label may be tried before giving up.</summary>
+    private const int ClearanceRungs = 8;
+
+    /// <summary>
+    /// The order the four ways out of a crowded spot are tried in, so a label lands above its
+    /// endpoint where it can and the choice never depends on anything but the geometry.
+    /// </summary>
+    private static readonly (double X, double Y)[] CandidateDirections =
+        [(0, -1), (0, 1), (1, 0), (-1, 0)];
+
     /// <summary>Emits one edge's geometry.</summary>
     /// <param name="svg">The builder to write to.</param>
     /// <param name="edge">The placed edge.</param>
@@ -355,29 +365,16 @@ public static class GraphEdgePainter
             LayoutPoint? anchor =
                 Beside(text, GraphGeometry.Along(endpoint, inward, along), endpoint, inward);
 
-            // A route that runs at an angle leaves the label beside it still catching the corner of
-            // the box it points at, so it is pushed further off the line until it is clear.
-            LayoutPoint? clear = ClearOfBoxes(text, anchor);
-
-            // An end label crowded away from the boxes can land on a different edge's connector,
-            // whose stroke its opaque rect would break into what reads as a dashed line. Clearing
-            // the connectors can put it back over a box, so the two sweeps alternate.
-            for (int pass = 0; pass < ClearancePasses; pass++)
-            {
-                LayoutPoint? moved = ClearOfConnectors(text, clear);
-                if (moved == clear)
-                {
-                    break;
-                }
-
-                clear = ClearOfBoxes(text, moved);
-            }
-
-            return clear;
+            return PlaceClear(text, anchor);
         }
 
-        // Nudges a label off every connector it crosses, the same least-move way out.
-        LayoutPoint? ClearOfConnectors(string text, LayoutPoint? anchor)
+        // An end label has to clear three kinds of thing at once — the boxes, the labels already
+        // placed, and every connector, whose stroke its opaque rect would otherwise break into what
+        // reads as a dashed line. Escaping them one at a time only trades one overlap for another,
+        // so instead a fixed ladder of candidate offsets is tried in order and the first candidate
+        // clear of everything wins; that terminates, and picking the least bad candidate when none
+        // is clear keeps the result defined for a diagram with nowhere to put the label.
+        LayoutPoint? PlaceClear(string text, LayoutPoint? anchor)
         {
             if (anchor is not { } at)
             {
@@ -387,12 +384,59 @@ public static class GraphEdgePainter
             NodeSize label = LabelBoxSize(text, paint, fontSize);
             double halfWidth = (label.Width / 2) + paint.LabelClearance;
             double halfHeight = (label.Height / 2) + paint.LabelClearance;
-            foreach ((LayoutPoint from, LayoutPoint to) in Connectors())
+            double step = label.Height + paint.LabelClearance;
+            LayoutPoint best = at;
+            int fewest = int.MaxValue;
+            for (int rung = 0; rung <= ClearanceRungs; rung++)
             {
-                at = PushOffSegment(at, halfWidth, halfHeight, from, to);
+                foreach ((double dirX, double dirY) in CandidateDirections)
+                {
+                    var candidate = new LayoutPoint(
+                        at.X + (dirX * step * rung), at.Y + (dirY * step * rung));
+                    int overlaps = Overlaps(candidate, halfWidth, halfHeight);
+                    if (overlaps == 0)
+                    {
+                        return candidate;
+                    }
+
+                    if (overlaps < fewest)
+                    {
+                        fewest = overlaps;
+                        best = candidate;
+                    }
+
+                    if (rung == 0)
+                    {
+                        break;
+                    }
+                }
             }
 
-            return at;
+            return best;
+        }
+
+        int Overlaps(LayoutPoint at, double halfWidth, double halfHeight)
+        {
+            int count = 0;
+            foreach (LabelRect box in Obstacles())
+            {
+                if (at.X + halfWidth > box.Left && at.X - halfWidth < box.Left + box.Width &&
+                    at.Y + halfHeight > box.Top && at.Y - halfHeight < box.Top + box.Height)
+                {
+                    count++;
+                }
+            }
+
+            foreach ((LayoutPoint from, LayoutPoint to) in Connectors())
+            {
+                // A segment the rect does not meet leaves the rect's centre where it is.
+                if (PushOffSegment(at, halfWidth, halfHeight, from, to) != at)
+                {
+                    count++;
+                }
+            }
+
+            return count;
         }
 
         IEnumerable<(LayoutPoint From, LayoutPoint To)> Connectors()
