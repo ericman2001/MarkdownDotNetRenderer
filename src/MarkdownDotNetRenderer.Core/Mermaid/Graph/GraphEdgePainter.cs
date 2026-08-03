@@ -357,7 +357,61 @@ public static class GraphEdgePainter
 
             // A route that runs at an angle leaves the label beside it still catching the corner of
             // the box it points at, so it is pushed further off the line until it is clear.
-            return ClearOfBoxes(text, anchor);
+            LayoutPoint? clear = ClearOfBoxes(text, anchor);
+
+            // An end label crowded away from the boxes can land on a different edge's connector,
+            // whose stroke its opaque rect would break into what reads as a dashed line. Clearing
+            // the connectors can put it back over a box, so the two sweeps alternate.
+            for (int pass = 0; pass < ClearancePasses; pass++)
+            {
+                LayoutPoint? moved = ClearOfConnectors(text, clear);
+                if (moved == clear)
+                {
+                    break;
+                }
+
+                clear = ClearOfBoxes(text, moved);
+            }
+
+            return clear;
+        }
+
+        // Nudges a label off every connector it crosses, the same least-move way out.
+        LayoutPoint? ClearOfConnectors(string text, LayoutPoint? anchor)
+        {
+            if (anchor is not { } at)
+            {
+                return anchor;
+            }
+
+            NodeSize label = LabelBoxSize(text, paint, fontSize);
+            double halfWidth = (label.Width / 2) + paint.LabelClearance;
+            double halfHeight = (label.Height / 2) + paint.LabelClearance;
+            foreach ((LayoutPoint from, LayoutPoint to) in Connectors())
+            {
+                at = PushOffSegment(at, halfWidth, halfHeight, from, to);
+            }
+
+            return at;
+        }
+
+        IEnumerable<(LayoutPoint From, LayoutPoint To)> Connectors()
+        {
+            foreach (PlacedEdge other in placement.Edges)
+            {
+                if (other.IsSelfLoop ||
+                    !placement.NodesById.TryGetValue(other.Edge.SourceId, out PlacedNode? from) ||
+                    !placement.NodesById.TryGetValue(other.Edge.TargetId, out PlacedNode? to))
+                {
+                    continue;
+                }
+
+                List<LayoutPoint> route = Route(other, from, to, paint);
+                for (int i = 1; i < route.Count; i++)
+                {
+                    yield return (route[i - 1], route[i]);
+                }
+            }
         }
 
         // Nudges a label out of anything it still overlaps, whose text it would otherwise erase,
@@ -423,6 +477,67 @@ public static class GraphEdgePainter
             {
                 yield return rect;
             }
+        }
+    }
+
+    /// <summary>
+    /// Moves a label's centre the shortest axis-aligned distance that takes its rect off a
+    /// connector segment, or leaves it where it is when the two do not meet.
+    /// </summary>
+    private static LayoutPoint PushOffSegment(
+        LayoutPoint at,
+        double halfWidth,
+        double halfHeight,
+        LayoutPoint from,
+        LayoutPoint to)
+    {
+        (double, double)? overY = Span(from.X, to.X, from.Y, to.Y, at.X - halfWidth, at.X + halfWidth);
+        (double, double)? overX = Span(from.Y, to.Y, from.X, to.X, at.Y - halfHeight, at.Y + halfHeight);
+        if (overY is not ({ } lowY, { } highY) || overX is not ({ } lowX, { } highX) ||
+            highY <= at.Y - halfHeight || lowY >= at.Y + halfHeight)
+        {
+            return at;
+        }
+
+        // Each candidate puts the whole crossing part of the segment on one side of the rect.
+        double down = highY - (at.Y - halfHeight);
+        double up = (at.Y + halfHeight) - lowY;
+        double right = highX - (at.X - halfWidth);
+        double left = (at.X + halfWidth) - lowX;
+        double byY = down <= up ? down : -up;
+        double byX = right <= left ? right : -left;
+        return Math.Abs(byX) <= Math.Abs(byY)
+            ? new LayoutPoint(at.X + byX, at.Y)
+            : new LayoutPoint(at.X, at.Y + byY);
+
+        // The range the segment's other coordinate covers while this one is inside the band.
+        static (double Low, double High)? Span(
+            double fromBand,
+            double toBand,
+            double fromValue,
+            double toValue,
+            double bandLow,
+            double bandHigh)
+        {
+            if (fromBand == toBand)
+            {
+                return fromBand < bandLow || fromBand > bandHigh
+                    ? null
+                    : (Math.Min(fromValue, toValue), Math.Max(fromValue, toValue));
+            }
+
+            double first = (bandLow - fromBand) / (toBand - fromBand);
+            double second = (bandHigh - fromBand) / (toBand - fromBand);
+            double start = Math.Max(0, Math.Min(first, second));
+            double end = Math.Min(1, Math.Max(first, second));
+            if (start > end)
+            {
+                return null;
+            }
+
+            double low = fromValue + ((toValue - fromValue) * start);
+            double high = fromValue + ((toValue - fromValue) * end);
+            return (Math.Min(low, high), Math.Max(low, high));
         }
     }
 
