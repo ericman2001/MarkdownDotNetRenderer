@@ -66,6 +66,9 @@ public sealed record GraphEdgePaint(
 /// </summary>
 public static class GraphEdgePainter
 {
+    /// <summary>How many times a label is swept out of the boxes it overlaps.</summary>
+    private const int ClearancePasses = 4;
+
     /// <summary>Emits one edge's geometry.</summary>
     /// <param name="svg">The builder to write to.</param>
     /// <param name="edge">The placed edge.</param>
@@ -165,7 +168,7 @@ public static class GraphEdgePainter
             return;
         }
 
-        EdgeLabelAnchors anchors = LabelAnchors(edge, source, target, paint, fontSize);
+        EdgeLabelAnchors anchors = LabelAnchors(edge, placement, paint, fontSize);
 
         svg.StartElement("g")
             .Attribute("class", "mdnr-edge-label")
@@ -189,26 +192,31 @@ public static class GraphEdgePainter
 
     /// <summary>
     /// Where an edge's three labels are centred. Every label is placed off the line rather than on
-    /// it, and clear of both boxes, because each is drawn with an opaque backing rect after the
+    /// it, and clear of every box in the diagram, because each is drawn with an opaque backing rect after the
     /// connector, its marker glyphs, and the boxes themselves.
     /// </summary>
     /// <param name="edge">The placed edge.</param>
-    /// <param name="source">The source box.</param>
-    /// <param name="target">The target box.</param>
+    /// <param name="placement">The placement the edge belongs to, which supplies its two boxes and
+    /// every other box a label has to stay off.</param>
     /// <param name="paint">Supplies the gaps, padding, and clearance.</param>
     /// <param name="fontSize">Font size in CSS pixels.</param>
-    /// <returns>The anchor of each label the edge actually carries.</returns>
+    /// <returns>The anchor of each label the edge actually carries, or every anchor
+    /// <see langword="null"/> when an end of the edge is not placed.</returns>
     public static EdgeLabelAnchors LabelAnchors(
         PlacedEdge edge,
-        PlacedNode source,
-        PlacedNode target,
+        GraphPlacement placement,
         GraphEdgePaint paint,
         double fontSize)
     {
         ArgumentNullException.ThrowIfNull(edge);
-        ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(placement);
         ArgumentNullException.ThrowIfNull(paint);
+
+        if (!placement.NodesById.TryGetValue(edge.Edge.SourceId, out PlacedNode? source) ||
+            !placement.NodesById.TryGetValue(edge.Edge.TargetId, out PlacedNode? target))
+        {
+            return new EdgeLabelAnchors(null, null, null);
+        }
 
         if (edge.IsSelfLoop)
         {
@@ -290,8 +298,9 @@ public static class GraphEdgePainter
             return ClearOfBoxes(text, anchor);
         }
 
-        // Nudges a label out of either box it still overlaps, whose text it would otherwise erase,
-        // taking whichever of the four ways out moves it least.
+        // Nudges a label out of any box it still overlaps, whose text it would otherwise erase,
+        // taking whichever of the four ways out moves it least. Its own two boxes come first, since
+        // clearing a bystander box must not push it back over them.
         LayoutPoint? ClearOfBoxes(string text, LayoutPoint? anchor)
         {
             if (anchor is not { } at)
@@ -302,26 +311,51 @@ public static class GraphEdgePainter
             NodeSize label = LabelBoxSize(text, paint, fontSize);
             double halfWidth = (label.Width / 2) + paint.LabelClearance;
             double halfHeight = (label.Height / 2) + paint.LabelClearance;
-            foreach (PlacedNode box in new[] { source, target })
+
+            // Stepping out of one box can step into the next, so the sweep repeats a fixed number
+            // of times: bounded, so still solver-free and deterministic.
+            for (int pass = 0; pass < ClearancePasses; pass++)
             {
-                if (at.X + halfWidth <= box.Left || at.X - halfWidth >= box.Left + box.Width ||
-                    at.Y + halfHeight <= box.Top || at.Y - halfHeight >= box.Top + box.Height)
+                LayoutPoint before = at;
+                foreach (PlacedNode box in Obstacles())
                 {
-                    continue;
+                    if (at.X + halfWidth <= box.Left || at.X - halfWidth >= box.Left + box.Width ||
+                        at.Y + halfHeight <= box.Top || at.Y - halfHeight >= box.Top + box.Height)
+                    {
+                        continue;
+                    }
+
+                    double left = box.Left - halfWidth;
+                    double right = box.Left + box.Width + halfWidth;
+                    double up = box.Top - halfHeight;
+                    double down = box.Top + box.Height + halfHeight;
+                    double byX = Math.Abs(left - at.X) <= Math.Abs(right - at.X) ? left : right;
+                    double byY = Math.Abs(up - at.Y) <= Math.Abs(down - at.Y) ? up : down;
+                    at = Math.Abs(byX - at.X) <= Math.Abs(byY - at.Y)
+                        ? new LayoutPoint(byX, at.Y)
+                        : new LayoutPoint(at.X, byY);
                 }
 
-                double left = box.Left - halfWidth;
-                double right = box.Left + box.Width + halfWidth;
-                double up = box.Top - halfHeight;
-                double down = box.Top + box.Height + halfHeight;
-                double byX = Math.Abs(left - at.X) <= Math.Abs(right - at.X) ? left : right;
-                double byY = Math.Abs(up - at.Y) <= Math.Abs(down - at.Y) ? up : down;
-                at = Math.Abs(byX - at.X) <= Math.Abs(byY - at.Y)
-                    ? new LayoutPoint(byX, at.Y)
-                    : new LayoutPoint(at.X, byY);
+                if (at.X == before.X && at.Y == before.Y)
+                {
+                    break;
+                }
             }
 
             return at;
+        }
+
+        IEnumerable<PlacedNode> Obstacles()
+        {
+            yield return source;
+            yield return target;
+            foreach (PlacedNode node in placement.Nodes)
+            {
+                if (!ReferenceEquals(node, source) && !ReferenceEquals(node, target))
+                {
+                    yield return node;
+                }
+            }
         }
     }
 

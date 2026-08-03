@@ -223,6 +223,37 @@ public sealed class ClassDiagramTests
     }
 
     [Fact]
+    public void A_Cardinality_Label_Stays_Off_A_Box_It_Merely_Passes()
+    {
+        XElement svg = RenderSvg("""
+            classDiagram
+                class Repo~T~ {
+                    +List~int~ ids
+                }
+                class Base
+                class Node
+                Base <|-- Repo
+                Base "1" *-- "0..*" Leaf
+                Base "1" o-- "*" Twig
+                Node "1" --> "*" Node : children
+            """);
+
+        // A label clears every box, not just the two its own edge joins: an opaque backing rect
+        // over a bystander box punches a hole through its border and members.
+        List<XElement> boxes = svg.Descendants(Svg + "g")
+            .Where(group => group.Attribute("data-id") is not null)
+            .Elements(Svg + "rect")
+            .ToList();
+        Assert.All(
+            svg.Descendants(Svg + "g")
+                .Where(group => group.Attribute("class")?.Value == "mdnr-edge-label")
+                .Elements(Svg + "rect"),
+            label => Assert.All(boxes, box => Assert.False(
+                Overlaps(label, box),
+                $"label {label} covers box {box}")));
+    }
+
+    [Fact]
     public void A_Relation_Glyph_Is_Drawn_As_Geometry_Beside_Its_Line()
     {
         XElement svg = RenderSvg(Simple);
@@ -411,6 +442,12 @@ public sealed class ClassDiagramTests
                 Number(rect, "y"),
                 Number(rect, "y") + Number(rect, "height")))
             .ToList();
+
+    private static bool Overlaps(XElement first, XElement second) =>
+        Number(first, "x") < Number(second, "x") + Number(second, "width") &&
+        Number(second, "x") < Number(first, "x") + Number(first, "width") &&
+        Number(first, "y") < Number(second, "y") + Number(second, "height") &&
+        Number(second, "y") < Number(first, "y") + Number(first, "height");
 
     private static double Number(XElement element, string name) =>
         double.Parse(

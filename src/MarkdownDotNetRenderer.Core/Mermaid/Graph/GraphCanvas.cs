@@ -69,7 +69,7 @@ public sealed record GraphCanvas(double OffsetX, double OffsetY, double Width, d
             }
 
             EdgeLabelAnchors anchors =
-                GraphEdgePainter.LabelAnchors(edge, source, target, paint, fontSize);
+                GraphEdgePainter.LabelAnchors(edge, placement, paint, fontSize);
             Include(edge.Edge.Label, anchors.Mid);
             Include(edge.Edge.StartLabel, anchors.Start);
             Include(edge.Edge.EndLabel, anchors.End);
