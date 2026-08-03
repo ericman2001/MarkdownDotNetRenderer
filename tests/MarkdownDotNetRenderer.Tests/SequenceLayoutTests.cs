@@ -125,6 +125,35 @@ public sealed class SequenceLayoutTests
     }
 
     [Fact]
+    public void A_Self_Message_Label_Keeps_Clear_Of_The_Right_Margin()
+    {
+        SequenceMetrics metrics = SequenceMetrics.Default;
+        SequenceLayout layout = Layout(
+            "sequenceDiagram\n    A->>A: a decidedly long self message label\n");
+
+        var row = Assert.IsType<SelfMessageRow>(Assert.Single(layout.Rows));
+        double labelRight = row.LifelineX + row.LoopWidth + metrics.SelfLoopLabelGap +
+            row.LabelWidth;
+        Assert.True(
+            labelRight + metrics.LabelEdgeClearance + metrics.Margin <= layout.Width,
+            $"label right {labelRight} is not clear of width {layout.Width}");
+    }
+
+    [Fact]
+    public void A_Right_Of_Note_Keeps_Clear_Of_The_Right_Margin()
+    {
+        SequenceMetrics metrics = SequenceMetrics.Default;
+        SequenceLayout layout = Layout(
+            "sequenceDiagram\n    participant A\n    Note right of A: a fairly wide trailing note\n");
+
+        var row = Assert.IsType<NoteRow>(Assert.Single(layout.Rows));
+        Assert.True(
+            row.BoxLeft + row.BoxWidth + metrics.LabelEdgeClearance + metrics.Margin
+                <= layout.Width,
+            $"note right {row.BoxLeft + row.BoxWidth} is not clear of width {layout.Width}");
+    }
+
+    [Fact]
     public void Everything_Drawn_Stays_Inside_The_Canvas()
     {
         SequenceLayout layout = Layout("""

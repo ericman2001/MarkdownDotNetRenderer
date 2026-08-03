@@ -106,6 +106,10 @@ from the plan:
 - **Left-hand notes.** `Note left of` the first actor would otherwise be drawn at a negative x.
   The layout instead shifts every placed element right by the overflow, so the canvas always
   starts at 0.
+- **Edge clearance.** Text width is estimated, not measured by a font engine, so anything that
+  sets the diagram's horizontal extent — a self-message label right of its loop, a `Note
+  right of`/`left of` box — reserves `SequenceMetrics.LabelEdgeClearance` on top of the margin.
+  The estimate can therefore run slightly short without a label ever touching the canvas edge.
 - **Arrowheads.** Four markers — filled (`->>`), open (`->`), cross (`-x`), and async (`-)`,
   parsed and drawn even though the phase table lists it as optional). They are emitted once per
   diagram inside `<defs>`, with ids prefixed by the source fingerprint from the shared

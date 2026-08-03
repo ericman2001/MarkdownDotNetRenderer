@@ -37,6 +37,10 @@ namespace MarkdownDotNetRenderer.Mermaid.Sequence;
 /// <param name="SelfLoopWidth">How far a self-message's loop reaches right of its lifeline.</param>
 /// <param name="SelfLoopHeight">Vertical drop of a self-message's loop.</param>
 /// <param name="SelfLoopLabelGap">Gap between a self-message loop and its label.</param>
+/// <param name="LabelEdgeClearance">
+/// Extra clearance kept between a label that determines the diagram's extent (a self-message
+/// label, a right-of note) and the margin, so approximate text measurement can never clip it.
+/// </param>
 /// <param name="NotePaddingX">Horizontal padding inside a note box.</param>
 /// <param name="NotePaddingY">Vertical padding inside a note box.</param>
 /// <param name="NoteRowGap">Gap below a note box before the next row.</param>
@@ -61,6 +65,7 @@ public sealed record SequenceMetrics(
     double SelfLoopWidth = 34,
     double SelfLoopHeight = 26,
     double SelfLoopLabelGap = 8,
+    double LabelEdgeClearance = 8,
     double NotePaddingX = 10,
     double NotePaddingY = 6,
     double NoteRowGap = 14,
@@ -308,7 +313,7 @@ public static class SequenceLayoutEngine
                     contentRight = Math.Max(
                         contentRight,
                         centers[column] + metrics.SelfLoopWidth + metrics.SelfLoopLabelGap +
-                            labelWidth);
+                            labelWidth + metrics.LabelEdgeClearance);
                     y += height;
                     break;
                 }
@@ -350,8 +355,9 @@ public static class SequenceLayoutEngine
 
                     double height = boxHeight + metrics.NoteRowGap;
                     rows.Add(new NoteRow(note, y, height, boxLeft, boxWidth, boxHeight, lines));
-                    contentLeft = Math.Min(contentLeft, boxLeft);
-                    contentRight = Math.Max(contentRight, boxLeft + boxWidth);
+                    contentLeft = Math.Min(contentLeft, boxLeft - metrics.LabelEdgeClearance);
+                    contentRight = Math.Max(
+                        contentRight, boxLeft + boxWidth + metrics.LabelEdgeClearance);
                     y += height;
                     break;
                 }
