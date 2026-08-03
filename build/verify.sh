@@ -153,6 +153,30 @@ for needle in 'content.xml' 'styles.xml' 'meta.xml' 'META-INF/manifest.xml' 'Pic
   fi
 done
 
+echo "==> Smoke run of native binary (sequence diagrams)"
+SEQ_HTML="$SMOKE_DIR/sequence-demo.html"
+SEQ_ODT="$SMOKE_DIR/sequence-demo.odt"
+"$BINARY" --input samples/sequence-demo.md --output "$SEQ_HTML" --format html
+"$BINARY" --input samples/sequence-demo.md --output "$SEQ_ODT" --format odt
+
+for needle in 'mdnr-sequence' 'mdnr-lifeline' 'sequence diagram with'; do
+  if ! grep -qF -- "$needle" "$SEQ_HTML"; then
+    echo "Sequence smoke render is missing expected content: $needle" >&2
+    fail
+  fi
+done
+
+# The verbatim source only survives when a diagram fell back to a code block.
+if grep -qF -- 'sequenceDiagram' "$SEQ_HTML"; then
+  echo "Sequence smoke render fell back to a code block instead of drawing SVG." >&2
+  fail
+fi
+
+if ! grep -qaF -- 'Pictures/diagram-1.svg' "$SEQ_ODT"; then
+  echo "Sequence ODT smoke render has no diagram picture part." >&2
+  fail
+fi
+
 # Formats whose writers have not shipped must fail loudly rather than write a broken file.
 # A non-zero exit is the expectation here, so the ERR trap has to stand down for one command.
 trap - ERR

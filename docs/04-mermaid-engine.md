@@ -283,13 +283,34 @@ from a lower to a higher layer:
 `<defs>` first, then all edges, then all nodes, then edge labels. Nodes after edges means
 opaque node fills cover any edge that grazes them; labels last keeps them on top.
 
-## Phase 3+: other diagram types
+## Sequence diagrams (implemented, phase 3)
+
+`sequenceDiagram` is the second registered type and is the proof that adding a diagram type
+touches nothing but `Mermaid/`: it needs no graph solver at all. `Sequence/SequenceParser.cs`
+reads participants, messages, notes, and `autonumber`; `Sequence/SequenceLayout.cs` places
+actors left-to-right in declaration-then-first-mention order and stacks events top-to-bottom in
+source order; `Sequence/SequenceRenderer.cs` emits the SVG. Geometry lives in `SequenceMetrics`
+and paint in `SequenceTheme`, the sequence counterparts of `LayoutMetrics`/`DiagramTheme`.
+
+Column gaps are the one place the layout looks at the whole diagram: each gap starts at
+`ActorGap` and is widened just enough that every message or `Note over` label spanning that pair
+of lifelines fits between them. That is a single pass over the events, so the result is a pure
+function of the model — repeated renders are byte-identical.
+
+Self-messages get a taller row with a rectangular loop drawn to the right of their lifeline;
+notes take a row of their own, and a `Note left of` the first actor shifts the whole diagram
+right rather than being clipped. The four arrow spellings map to four `<marker>` definitions
+(filled `->>`, open `->`, cross `-x`, async `-)`), each emitted once per diagram with an id
+derived from the source (`DiagramIds`) so several diagrams can share one HTML document.
+
+Fragments (`loop`, `alt`, `opt`, `par`, `critical`, `break`, `rect`, `box`), activations, and
+`title` are recognized but not drawn: each reports one `MERMAID003` per keyword and the messages
+inside still render in source order.
+
+## Phase 4+: other diagram types
 
 Each new diagram type is a new `IDiagramRenderer` registered in the built-in list; nothing
-else in the pipeline changes. `sequenceDiagram` (see
-[phase 3](phases/phase-3-sequence-diagrams.md)) needs no graph solver at all — actors are
-placed left-to-right in first-mention order and messages stack top-to-bottom in source
-order. `classDiagram`, `stateDiagram`, `pie`, and `gantt` are sketched in
+else in the pipeline changes. `classDiagram`, `stateDiagram`, `pie`, and `gantt` are sketched in
 [phase 4](phases/phase-4-additional-diagrams.md); `pie` and `gantt` are also solver-free,
 while `classDiagram`/`stateDiagram` reuse the Phase 1 layered layout, which is why that code
 lives in `Mermaid/` shared space rather than inside `Flowchart/`.

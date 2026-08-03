@@ -97,7 +97,7 @@ public sealed class FlowchartRenderer : IDiagramRenderer
                 parsed.Diagnostics);
         }
 
-        string idPrefix = $"mdnr-{Fingerprint(mermaidSource)}";
+        string idPrefix = DiagramIds.ForSource(mermaidSource);
         string altText =
             $"flowchart with {model.Nodes.Count} nodes and {model.Edges.Count} edges";
         // Self-loops are drawn beside their node, which the node-box-based layout cannot know about.
@@ -653,22 +653,4 @@ public sealed class FlowchartRenderer : IDiagramRenderer
         string.Create(
             CultureInfo.InvariantCulture,
             $"{SvgBuilder.Number(x)},{SvgBuilder.Number(y)}");
-
-    /// <summary>
-    /// A short deterministic fingerprint (FNV-1a) of the diagram source, used to make element ids
-    /// unique per diagram while keeping repeated renders byte-identical.
-    /// </summary>
-    private static string Fingerprint(string source)
-    {
-        const uint offsetBasis = 2166136261;
-        const uint prime = 16777619;
-        uint hash = offsetBasis;
-        foreach (char c in MermaidRenderer.Normalize(source))
-        {
-            hash ^= c;
-            hash *= prime;
-        }
-
-        return hash.ToString("x8", CultureInfo.InvariantCulture);
-    }
 }

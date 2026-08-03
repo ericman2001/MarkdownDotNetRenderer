@@ -144,6 +144,39 @@ try {
             $Package.Dispose()
         }
 
+        Write-Host '==> Smoke run of native binary (sequence diagrams)'
+        $SeqHtml = Join-Path $SmokeDir 'sequence-demo.html'
+        $SeqOdt = Join-Path $SmokeDir 'sequence-demo.odt'
+        Invoke-Checked {
+            & $Binary --input 'samples/sequence-demo.md' --output $SeqHtml --format html
+        }
+        Invoke-Checked {
+            & $Binary --input 'samples/sequence-demo.md' --output $SeqOdt --format odt
+        }
+
+        $SeqContent = Get-Content -Raw -Path $SeqHtml
+        foreach ($needle in @('mdnr-sequence', 'mdnr-lifeline', 'sequence diagram with')) {
+            if (-not $SeqContent.Contains($needle)) {
+                throw "Sequence smoke render is missing expected content: $needle"
+            }
+        }
+
+        # The verbatim source only survives when a diagram fell back to a code block.
+        if ($SeqContent.Contains('sequenceDiagram')) {
+            throw 'Sequence smoke render fell back to a code block instead of drawing SVG.'
+        }
+
+        $SeqPackage = [System.IO.Compression.ZipFile]::OpenRead($SeqOdt)
+        try {
+            $SeqNames = $SeqPackage.Entries | ForEach-Object { $_.FullName }
+            if ($SeqNames -notcontains 'Pictures/diagram-1.svg') {
+                throw 'Sequence ODT smoke render has no diagram picture part.'
+            }
+        }
+        finally {
+            $SeqPackage.Dispose()
+        }
+
         # Formats whose writers have not shipped must fail loudly rather than write a broken file.
         $DocxOut = Join-Path $SmokeDir 'out.docx'
         $DocxErrors = & $Binary --input 'samples/flowchart-demo.md' --output $DocxOut --format docx 2>&1

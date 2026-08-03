@@ -83,7 +83,13 @@ src/
         FlowchartModel.cs        // nodes, edges, direction
         LayeredLayout.cs         // Sugiyama-style ranking + ordering + coordinates
         FlowchartRenderer.cs     // IDiagramRenderer for flowchart/graph
-      Sequence/                  // phase 3
+      Sequence/
+        SequenceParser.cs
+        SequenceModel.cs         // actors, ordered messages and notes
+        SequenceLayout.cs        // solver-free columns and rows
+        SequenceTheme.cs         // colours and box geometry
+        SequenceRenderer.cs      // IDiagramRenderer for sequenceDiagram
+      DiagramIds.cs              // per-diagram element id prefixes
     Svg/
       SvgBuilder.cs
       TextMetrics.cs

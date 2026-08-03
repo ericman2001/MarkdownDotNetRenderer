@@ -88,7 +88,7 @@ public sealed class MermaidDispatchTests
         var renderer = new MermaidRenderer();
 
         DiagramRenderResult result = renderer.Render(
-            "sequenceDiagram\n  Alice->>Bob: hi\n", RenderOptions.Html);
+            "gantt\n  title Later\n", RenderOptions.Html);
 
         Assert.False(result.Success);
         Assert.Null(result.SvgFragment);
@@ -116,7 +116,7 @@ public sealed class MermaidDispatchTests
         var renderer = new MermaidRenderer();
 
         Assert.Equal(
-            ["flowchart", "graph"],
+            ["flowchart", "graph", "sequenceDiagram"],
             renderer.SupportedDiagramTypes.OrderBy(t => t, StringComparer.Ordinal));
     }
 
@@ -125,11 +125,11 @@ public sealed class MermaidDispatchTests
     {
         var renderer = new MarkdownRenderer();
         RenderResult result = await renderer.RenderAsync(
-            "```mermaid\nsequenceDiagram\n  Alice->>Bob: <hi>\n```\n", RenderOptions.Html);
+            "```mermaid\nclassDiagram\n  Alice : <hi>\n```\n", RenderOptions.Html);
         string html = Encoding.UTF8.GetString(result.Content.Span);
 
         Assert.Contains("<pre><code class=\"language-mermaid\">", html, StringComparison.Ordinal);
-        Assert.Contains("Alice-&gt;&gt;Bob: &lt;hi&gt;", html, StringComparison.Ordinal);
+        Assert.Contains("Alice : &lt;hi&gt;", html, StringComparison.Ordinal);
         Assert.DoesNotContain("<svg", html, StringComparison.Ordinal);
 
         RenderDiagnostic diagnostic = Assert.Single(result.Diagnostics);
