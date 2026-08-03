@@ -27,9 +27,11 @@ namespace MarkdownDotNetRenderer.Mermaid.Graph;
 /// </summary>
 /// <param name="OffsetX">How far the whole drawing is translated right; zero when nothing sits
 /// left of the margin.</param>
+/// <param name="OffsetY">How far the whole drawing is translated down; zero when nothing sits
+/// above the margin.</param>
 /// <param name="Width">Total width after the shift, including margins.</param>
-/// <param name="Height">Total height, which edge decoration never changes.</param>
-public sealed record GraphCanvas(double OffsetX, double Width, double Height)
+/// <param name="Height">Total height after the shift, including margins.</param>
+public sealed record GraphCanvas(double OffsetX, double OffsetY, double Width, double Height)
 {
     /// <summary>Measures the canvas a placement needs.</summary>
     /// <param name="placement">The placed nodes and routed edges.</param>
@@ -50,6 +52,8 @@ public sealed record GraphCanvas(double OffsetX, double Width, double Height)
         // push these bounds outwards.
         double left = margin;
         double right = placement.Width - margin;
+        double top = margin;
+        double bottom = placement.Height - margin;
 
         foreach (PlacedEdge edge in placement.Edges)
         {
@@ -62,52 +66,43 @@ public sealed record GraphCanvas(double OffsetX, double Width, double Height)
             if (edge.IsSelfLoop)
             {
                 right = Math.Max(right, GraphEdgePainter.SelfLoopRight(source, paint));
-                Include(
-                    edge.Edge.Label,
-                    GraphEdgePainter.SelfLoopLabelAnchor(
-                        source, paint, edge.Edge.Label ?? string.Empty, fontSize));
-                continue;
             }
 
-            List<LayoutPoint> points = GraphEdgePainter.Route(edge, source, target, paint);
-            if (edge.Edge.Label is { Length: > 0 } label)
-            {
-                Include(
-                    label,
-                    GraphEdgePainter.MidLabelAnchor(label, points, source, paint, fontSize));
-            }
-
-            (LayoutPoint startAnchor, LayoutPoint endAnchor) =
-                GraphEdgePainter.EndLabelAnchors(points, paint, fontSize);
-            Include(edge.Edge.StartLabel, startAnchor);
-            Include(edge.Edge.EndLabel, endAnchor);
+            EdgeLabelAnchors anchors =
+                GraphEdgePainter.LabelAnchors(edge, source, target, paint, fontSize);
+            Include(edge.Edge.Label, anchors.Mid);
+            Include(edge.Edge.StartLabel, anchors.Start);
+            Include(edge.Edge.EndLabel, anchors.End);
         }
 
         double offsetX = Math.Max(0, margin - left);
+        double offsetY = Math.Max(0, margin - top);
         return new GraphCanvas(
             offsetX,
+            offsetY,
             Math.Max(placement.Width, right + offsetX + margin),
-            placement.Height);
+            Math.Max(placement.Height, bottom + offsetY + margin));
 
-        void Include(string? text, LayoutPoint anchor)
+        void Include(string? text, LayoutPoint? anchor)
         {
-            if (string.IsNullOrEmpty(text))
+            if (string.IsNullOrEmpty(text) || anchor is not { } at)
             {
                 return;
             }
 
-            double half = GraphEdgePainter.LabelBoxSize(text, paint, fontSize).Width / 2;
-            left = Math.Min(left, anchor.X - half);
-            right = Math.Max(right, anchor.X + half);
+            NodeSize box = GraphEdgePainter.LabelBoxSize(text, paint, fontSize);
+            left = Math.Min(left, at.X - (box.Width / 2));
+            right = Math.Max(right, at.X + (box.Width / 2));
+            top = Math.Min(top, at.Y - (box.Height / 2));
+            bottom = Math.Max(bottom, at.Y + (box.Height / 2));
         }
     }
 
     /// <summary>
-    /// The smallest layer gap that keeps every mid-edge label clear of the boxes it sits between:
-    /// the label is centred on the route, so the gap it spans along the main axis must hold the
-    /// whole backing rect, its clearance, and the marker glyphs the two ends carry. Without this
-    /// the label's opaque rect would erase the text of the boxes it overlaps, or the glyphs and the
-    /// short connector between them.
+    /// The smallest layer gap that keeps an edge's decoration clear of the boxes it sits between.
+    /// Labels are drawn beside the line, but they still span the gap along the main axis, so it has
+    /// to hold a whole backing rect; and a gap has to leave a visible run of connector between the
+    /// marker glyphs the two ends carry.
     /// </summary>
     /// <param name="edges">The edges about to be laid out.</param>
     /// <param name="direction">Which axis layers advance along.</param>
@@ -126,21 +121,52 @@ public sealed record GraphCanvas(double OffsetX, double Width, double Height)
         double gap = 0;
         foreach (GraphEdgeSpec edge in edges)
         {
-            if (string.IsNullOrEmpty(edge.Label) || edge.SourceId == edge.TargetId)
+            if (edge.SourceId == edge.TargetId)
             {
                 continue;
             }
 
-            NodeSize box = GraphEdgePainter.LabelBoxSize(edge.Label, paint, fontSize);
-            double extent = direction == FlowDirection.LeftRight ? box.Width : box.Height;
-            gap = Math.Max(
-                gap,
-                extent + (2 * paint.LabelClearance) +
-                    edge.StartMarkerInset + edge.EndMarkerInset);
+            double insets = edge.StartMarkerInset + edge.EndMarkerInset;
+            bool decorated = edge.Label is { Length: > 0 } ||
+                edge.StartLabel is { Length: > 0 } || edge.EndLabel is { Length: > 0 };
+            if (!decorated && insets == 0)
+            {
+                continue;
+            }
+
+            double needed = insets + MinVisibleConnector;
+            if (edge.Label is { Length: > 0 })
+            {
+                needed = Math.Max(needed, Extent(edge.Label) + (2 * paint.LabelClearance) + insets);
+            }
+
+            // Each end label steps in from its endpoint by half its own extent before stepping off
+            // the line, so both have to fit between the glyphs.
+            double ends = 0;
+            if (edge.StartLabel is { Length: > 0 })
+            {
+                ends += paint.EndLabelGap + (Extent(edge.StartLabel) / 2);
+            }
+
+            if (edge.EndLabel is { Length: > 0 })
+            {
+                ends += paint.EndLabelGap + (Extent(edge.EndLabel) / 2);
+            }
+
+            gap = Math.Max(gap, ends == 0 ? needed : Math.Max(needed, insets + ends));
         }
 
         return gap;
+
+        double Extent(string text)
+        {
+            NodeSize box = GraphEdgePainter.LabelBoxSize(text, paint, fontSize);
+            return direction == FlowDirection.LeftRight ? box.Width : box.Height;
+        }
     }
+
+    /// <summary>How much bare connector a labelled or marked edge always shows.</summary>
+    private const double MinVisibleConnector = 12;
 
     /// <summary>Applies the measured layer gap to a metrics record.</summary>
     /// <param name="metrics">The layout geometry to widen.</param>
@@ -188,8 +214,7 @@ public sealed record GraphCanvas(double OffsetX, double Width, double Height)
                 continue;
             }
 
-            double reserve =
-                GraphEdgePainter.SelfLoopReserve(paint, edge.Label ?? string.Empty, fontSize);
+            double reserve = GraphEdgePainter.SelfLoopReserve(edge, paint, fontSize);
             reserves[edge.SourceId] = Math.Max(
                 reserves.TryGetValue(edge.SourceId, out double existing) ? existing : 0, reserve);
         }
@@ -219,10 +244,12 @@ public sealed record GraphCanvas(double OffsetX, double Width, double Height)
     {
         ArgumentNullException.ThrowIfNull(svg);
 
-        if (OffsetX > 0)
+        if (OffsetX > 0 || OffsetY > 0)
         {
             svg.StartElement("g")
-                .Attribute("transform", $"translate({SvgBuilder.Number(OffsetX)} 0)");
+                .Attribute(
+                    "transform",
+                    $"translate({SvgBuilder.Number(OffsetX)} {SvgBuilder.Number(OffsetY)})");
         }
     }
 
@@ -232,7 +259,7 @@ public sealed record GraphCanvas(double OffsetX, double Width, double Height)
     {
         ArgumentNullException.ThrowIfNull(svg);
 
-        if (OffsetX > 0)
+        if (OffsetX > 0 || OffsetY > 0)
         {
             svg.EndElement();
         }

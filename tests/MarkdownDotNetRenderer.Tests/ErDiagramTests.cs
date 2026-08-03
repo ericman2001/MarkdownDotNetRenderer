@@ -203,6 +203,29 @@ public sealed class ErDiagramTests
         Assert.True(glyphTop < top && glyphBottom > bottom);
     }
 
+    [Fact]
+    public void A_Relationship_Label_Leaves_The_Connector_Itself_Visible()
+    {
+        XElement svg = RenderSvg("""
+            erDiagram
+                DOCUMENT ||--o{ BLOCK : contains
+            """);
+
+        XElement line = svg.Descendants(Svg + "line").Single();
+        double lineX = Number(line, "x1");
+        XElement label = svg
+            .Descendants(Svg + "g")
+            .Single(group => group.Attribute("class")?.Value == "mdnr-edge-label")
+            .Element(Svg + "rect")!;
+        double left = Number(label, "x");
+        double right = left + Number(label, "width");
+
+        // A label centred on a short connector paints over all of it but the two stubs its own rect
+        // leaves behind, so it has to sit beside the line instead.
+        Assert.True(
+            right <= lineX || left >= lineX, $"label {left}..{right} covers the line at {lineX}");
+    }
+
     private static double Number(XElement element, string name) =>
         double.Parse(
             element.Attribute(name)!.Value,

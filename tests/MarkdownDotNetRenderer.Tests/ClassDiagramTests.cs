@@ -302,6 +302,68 @@ public sealed class ClassDiagramTests
             });
     }
 
+    [Fact]
+    public void A_Cardinality_Label_Stays_Outside_Both_Class_Boxes()
+    {
+        XElement svg = RenderSvg("""
+            classDiagram
+                FlowchartRenderer "1" *-- "1" LayeredLayout
+            """);
+
+        List<(double Left, double Right, double Top, double Bottom)> boxes = svg
+            .Descendants(Svg + "g")
+            .Where(group => group.Attribute("data-id") is not null)
+            .Elements(Svg + "rect")
+            .Select(rect => (
+                Number(rect, "x"),
+                Number(rect, "x") + Number(rect, "width"),
+                Number(rect, "y"),
+                Number(rect, "y") + Number(rect, "height")))
+            .ToList();
+
+        // A label whose rect reaches into a box erases the caption underneath it.
+        Assert.All(LabelRects(svg), label => Assert.All(boxes, box => Assert.True(
+            label.Right <= box.Left || box.Right <= label.Left ||
+                label.Bottom <= box.Top || box.Bottom <= label.Top,
+            $"label {label} reaches into box {box}")));
+    }
+
+    [Fact]
+    public void A_Self_Relations_Labels_Do_Not_Overlap_One_Another()
+    {
+        XElement svg = RenderSvg("""
+            classDiagram
+                Node "1" --> "*" Node : children
+            """);
+
+        List<(double Left, double Right, double Top, double Bottom)> labels = LabelRects(svg);
+
+        Assert.Equal(3, labels.Count);
+        for (int i = 0; i < labels.Count; i++)
+        {
+            for (int j = i + 1; j < labels.Count; j++)
+            {
+                Assert.True(
+                    labels[i].Right <= labels[j].Left || labels[j].Right <= labels[i].Left ||
+                        labels[i].Bottom <= labels[j].Top || labels[j].Bottom <= labels[i].Top,
+                    $"labels {labels[i]} and {labels[j]} overlap");
+            }
+        }
+    }
+
+    private static List<(double Left, double Right, double Top, double Bottom)> LabelRects(
+        XElement svg) =>
+        svg
+            .Descendants(Svg + "g")
+            .Where(group => group.Attribute("class")?.Value == "mdnr-edge-label")
+            .Elements(Svg + "rect")
+            .Select(rect => (
+                Number(rect, "x"),
+                Number(rect, "x") + Number(rect, "width"),
+                Number(rect, "y"),
+                Number(rect, "y") + Number(rect, "height")))
+            .ToList();
+
     private static double Number(XElement element, string name) =>
         double.Parse(
             element.Attribute(name)!.Value,
