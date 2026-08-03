@@ -308,6 +308,7 @@ public sealed class ClassDiagramTests
         XElement svg = RenderSvg("""
             classDiagram
                 FlowchartRenderer "1" *-- "1" LayeredLayout
+                Base "1" o-- "*" Twig
             """);
 
         List<(double Left, double Right, double Top, double Bottom)> boxes = svg

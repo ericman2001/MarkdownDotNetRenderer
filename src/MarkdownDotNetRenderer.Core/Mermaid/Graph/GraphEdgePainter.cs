@@ -213,7 +213,13 @@ public static class GraphEdgePainter
         return new EdgeLabelAnchors(
             ClearOfLoopBand(
                 edge.Edge.Label,
-                Beside(edge.Edge.Label, GraphGeometry.MidPoint(points), points[0], points[^1]),
+                edge.Edge.Label is { Length: > 0 } label
+                    ? ClearOfBoxes(
+                        label,
+                        Beside(label, GraphGeometry.MidPoint(points), points[0], points[^1]),
+                        points[0],
+                        points[^1])
+                    : null,
                 points[^1]),
             EndLabelAnchor(edge.Edge.StartLabel, points[0], points[1], edge.Edge.StartMarkerInset),
             EndLabelAnchor(edge.Edge.EndLabel, points[^1], points[^2], edge.Edge.EndMarkerInset));
@@ -272,7 +278,44 @@ public static class GraphEdgePainter
                 (Math.Abs(inward.X - endpoint.X) > Math.Abs(inward.Y - endpoint.Y)
                     ? box.Width / 2
                     : box.Height / 2);
-            return Beside(text, GraphGeometry.Along(endpoint, inward, along), endpoint, inward);
+            LayoutPoint? anchor =
+                Beside(text, GraphGeometry.Along(endpoint, inward, along), endpoint, inward);
+
+            // A route that runs at an angle leaves the label beside it still catching the corner of
+            // the box it points at, so it is pushed further off the line until it is clear.
+            return ClearOfBoxes(text, anchor, endpoint, inward);
+        }
+
+        // Nudges a label further along the normal it was pushed along until its rect no longer
+        // overlaps either box, whose text it would otherwise erase.
+        LayoutPoint? ClearOfBoxes(string text, LayoutPoint? anchor, LayoutPoint from, LayoutPoint to)
+        {
+            if (anchor is not { } at)
+            {
+                return anchor;
+            }
+
+            NodeSize label = LabelBoxSize(text, paint, fontSize);
+            (double normalX, double normalY) = Normal(from, to);
+            foreach (PlacedNode box in new[] { source, target })
+            {
+                double overlapX = Math.Min(at.X + (label.Width / 2), box.Left + box.Width) -
+                    Math.Max(at.X - (label.Width / 2), box.Left);
+                double overlapY = Math.Min(at.Y + (label.Height / 2), box.Top + box.Height) -
+                    Math.Max(at.Y - (label.Height / 2), box.Top);
+                if (overlapX <= 0 || overlapY <= 0)
+                {
+                    continue;
+                }
+
+                at = Math.Abs(normalX) > Math.Abs(normalY)
+                    ? new LayoutPoint(
+                        at.X + (Math.Sign(normalX) * (overlapX + paint.LabelClearance)), at.Y)
+                    : new LayoutPoint(
+                        at.X, at.Y + (Math.Sign(normalY) * (overlapY + paint.LabelClearance)));
+            }
+
+            return at;
         }
     }
 
