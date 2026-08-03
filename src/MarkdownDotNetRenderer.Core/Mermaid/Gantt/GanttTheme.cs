@@ -24,6 +24,9 @@ namespace MarkdownDotNetRenderer.Mermaid.Gantt;
 /// <param name="DoneFill">Fill of a bar tagged <c>done</c>.</param>
 /// <param name="ActiveFill">Fill of a bar tagged <c>active</c>.</param>
 /// <param name="CriticalStroke">Stroke of a bar tagged <c>crit</c>.</param>
+/// <param name="CriticalStrokeWidth">Stroke width of a bar tagged <c>crit</c>. Wider than a plain
+/// bar's so the outline survives being rasterized at a document's scale, where a hairline
+/// disappeared.</param>
 /// <param name="BarStroke">Stroke of an untagged bar.</param>
 /// <param name="BarStrokeWidth">Stroke width of a bar.</param>
 /// <param name="MilestoneFill">Fill of a milestone diamond.</param>
@@ -38,6 +41,7 @@ public sealed record GanttTheme(
     string DoneFill = "#b8c2cc",
     string ActiveFill = "#4477aa",
     string CriticalStroke = "#c0392b",
+    double CriticalStrokeWidth = 2.5,
     string BarStroke = "#33415a",
     double BarStrokeWidth = 1,
     string MilestoneFill = "#33415a",
@@ -50,6 +54,28 @@ public sealed record GanttTheme(
 {
     /// <summary>The defaults documented in docs/phases/phase-4-additional-diagrams.md.</summary>
     public static GanttTheme Default { get; } = new();
+
+    /// <summary>The stroke a task's bar or milestone is outlined with.</summary>
+    /// <param name="task">The task.</param>
+    /// <returns>A CSS colour literal.</returns>
+    public string Stroke(GanttTask task)
+    {
+        ArgumentNullException.ThrowIfNull(task);
+
+        return task.IsCritical
+            ? CriticalStroke
+            : task.IsMilestone ? MilestoneFill : BarStroke;
+    }
+
+    /// <summary>The stroke width a task's bar or milestone is outlined with.</summary>
+    /// <param name="task">The task.</param>
+    /// <returns>The width in CSS pixels.</returns>
+    public double StrokeWidth(GanttTask task)
+    {
+        ArgumentNullException.ThrowIfNull(task);
+
+        return task.IsCritical ? CriticalStrokeWidth : BarStrokeWidth;
+    }
 
     /// <summary>The bar fill for one task state.</summary>
     /// <param name="state">The task's progress state.</param>

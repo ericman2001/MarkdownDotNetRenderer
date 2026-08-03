@@ -14,6 +14,7 @@
 // with this library; see the file LICENSE.LESSER. If not, see
 // <https://www.gnu.org/licenses/>.
 
+using MarkdownDotNetRenderer.Mermaid.Flowchart;
 using MarkdownDotNetRenderer.Svg;
 
 namespace MarkdownDotNetRenderer.Mermaid.Graph;
@@ -47,38 +48,32 @@ public enum GraphMarker
 }
 
 /// <summary>
-/// The shared <c>&lt;defs&gt;</c> marker library. A renderer asks for exactly the glyphs its
-/// diagram uses; each is defined once per fragment under an id derived from the diagram source, so
-/// several diagrams in one HTML document never collide (docs/04-mermaid-engine.md).
+/// The shared line-end glyph library. Each glyph is drawn as ordinary geometry at the endpoint it
+/// belongs to, rotated to follow its line, rather than referenced through an SVG
+/// <c>&lt;marker&gt;</c>: consumers that only implement a subset of SVG — notably the ODT
+/// rasterizer, which dropped the ER cardinality bars — render plain paths reliably, and the
+/// fragments stay self-contained with no <c>&lt;defs&gt;</c> to keep unique per document
+/// (docs/04-mermaid-engine.md).
 /// </summary>
 public static class GraphMarkers
 {
-    /// <summary>Side of the square marker viewBox every glyph is drawn in.</summary>
+    /// <summary>Side of the square glyph box every glyph is drawn in.</summary>
     public const double ViewBoxSide = 10;
 
-    /// <summary>The marker id for one glyph within one diagram.</summary>
-    /// <param name="idPrefix">The diagram's id prefix, from <see cref="DiagramIds.ForSource"/>.</param>
+    /// <summary>The glyph's name, used as the <c>data-marker</c> value of the group drawn.</summary>
     /// <param name="marker">The glyph.</param>
-    /// <returns>The marker id.</returns>
-    public static string Id(string idPrefix, GraphMarker marker)
+    /// <returns>The name.</returns>
+    public static string Name(GraphMarker marker) => marker switch
     {
-        ArgumentException.ThrowIfNullOrEmpty(idPrefix);
-
-        string suffix = marker switch
-        {
-            GraphMarker.Arrow => "arrow",
-            GraphMarker.HollowTriangle => "triangle",
-            GraphMarker.FilledDiamond => "diamond-filled",
-            GraphMarker.HollowDiamond => "diamond-hollow",
-            GraphMarker.ErExactlyOne => "er-one",
-            GraphMarker.ErZeroOrOne => "er-zero-one",
-            GraphMarker.ErOneOrMany => "er-one-many",
-            GraphMarker.ErZeroOrMany => "er-zero-many",
-            _ => "arrow",
-        };
-
-        return $"{idPrefix}-{suffix}";
-    }
+        GraphMarker.HollowTriangle => "triangle",
+        GraphMarker.FilledDiamond => "diamond-filled",
+        GraphMarker.HollowDiamond => "diamond-hollow",
+        GraphMarker.ErExactlyOne => "er-one",
+        GraphMarker.ErZeroOrOne => "er-zero-one",
+        GraphMarker.ErOneOrMany => "er-one-many",
+        GraphMarker.ErZeroOrMany => "er-zero-many",
+        _ => "arrow",
+    };
 
     /// <summary>
     /// How far a line carrying this glyph must stop short of the box it points at so the glyph is
@@ -94,43 +89,50 @@ public static class GraphMarkers
         marker == GraphMarker.Arrow ? 0 : size * strokeWidth;
 
     /// <summary>
-    /// Writes a <c>&lt;defs&gt;</c> block defining the requested glyphs, in
-    /// <see cref="GraphMarker"/> order and without duplicates so the output is deterministic
-    /// whatever order the caller collected them in.
+    /// Draws one glyph at a line's endpoint, pointing the way the line arrives there, at the same
+    /// size and stroke width an equivalent <c>&lt;marker&gt;</c> would have produced.
     /// </summary>
     /// <param name="svg">The builder to write to.</param>
-    /// <param name="idPrefix">The diagram's id prefix.</param>
-    /// <param name="markers">The glyphs the diagram references.</param>
+    /// <param name="marker">The glyph.</param>
+    /// <param name="at">The endpoint the glyph's reference point sits on.</param>
+    /// <param name="from">A point back along the line, which fixes the glyph's rotation.</param>
     /// <param name="stroke">Glyph stroke colour.</param>
-    /// <param name="strokeWidth">Glyph stroke width.</param>
+    /// <param name="strokeWidth">Stroke width of the line, which also scales the glyph.</param>
     /// <param name="background">Fill of the hollow glyphs.</param>
-    /// <param name="size">Marker width and height, in stroke-width units.</param>
-    public static void EmitDefs(
+    /// <param name="size">Glyph width and height, in stroke-width units.</param>
+    public static void EmitAt(
         SvgBuilder svg,
-        string idPrefix,
-        IReadOnlyCollection<GraphMarker> markers,
+        GraphMarker marker,
+        LayoutPoint at,
+        LayoutPoint from,
         string stroke,
         double strokeWidth,
         string background,
         double size)
     {
         ArgumentNullException.ThrowIfNull(svg);
-        ArgumentException.ThrowIfNullOrEmpty(idPrefix);
-        ArgumentNullException.ThrowIfNull(markers);
 
-        svg.StartElement("defs");
-
-        foreach (GraphMarker marker in Enum.GetValues<GraphMarker>())
+        double scale = size * strokeWidth / ViewBoxSide;
+        if (scale <= 0)
         {
-            if (!markers.Contains(marker))
-            {
-                continue;
-            }
-
-            StartMarker(svg, Id(idPrefix, marker), RefX(marker), size);
-            EmitGlyph(svg, marker, stroke, strokeWidth, background);
-            svg.EndElement();
+            return;
         }
+
+        double angle = Math.Atan2(at.Y - from.Y, at.X - from.X) * 180 / Math.PI;
+
+        svg.StartElement("g")
+            .Attribute("class", "mdnr-edge-marker")
+            .Attribute("data-marker", Name(marker))
+            .Attribute(
+                "transform",
+                $"translate({SvgBuilder.Number(at.X)} {SvgBuilder.Number(at.Y)}) " +
+                $"rotate({SvgBuilder.Number(angle)}) " +
+                $"scale({SvgBuilder.Number(scale)}) " +
+                $"translate({SvgBuilder.Number(-RefX(marker))} {SvgBuilder.Number(-ViewBoxSide / 2)})");
+
+        // The group scales the glyph box, so the stroke has to be pre-divided to land on the
+        // line's own width once drawn.
+        EmitGlyph(svg, marker, stroke, strokeWidth / scale, background);
 
         svg.EndElement();
     }
@@ -138,16 +140,6 @@ public static class GraphMarkers
     /// <summary>Where along the glyph the line's endpoint sits.</summary>
     private static double RefX(GraphMarker marker) =>
         marker == GraphMarker.Arrow ? ViewBoxSide - 1 : ViewBoxSide;
-
-    private static void StartMarker(SvgBuilder svg, string id, double refX, double size) =>
-        svg.StartElement("marker")
-            .Attribute("id", id)
-            .Attribute("viewBox", $"0 0 {SvgBuilder.Number(ViewBoxSide)} {SvgBuilder.Number(ViewBoxSide)}")
-            .Attribute("refX", refX)
-            .Attribute("refY", ViewBoxSide / 2)
-            .Attribute("markerWidth", size)
-            .Attribute("markerHeight", size)
-            .Attribute("orient", "auto-start-reverse");
 
     private static void EmitGlyph(
         SvgBuilder svg,

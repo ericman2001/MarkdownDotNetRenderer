@@ -32,7 +32,6 @@ namespace MarkdownDotNetRenderer.Mermaid.Er;
 /// <param name="CompartmentPadding">Padding above and below a compartment's lines.</param>
 /// <param name="EmptyCompartmentHeight">Height of the attribute compartment when there are none.</param>
 /// <param name="MinWidth">Smallest entity box width.</param>
-/// <param name="MarkerSize">Crow's-foot marker size, in stroke-width units.</param>
 public sealed record ErTheme(
     string BoxFill = "#ffffff",
     string BoxStroke = "#33415a",
@@ -43,11 +42,10 @@ public sealed record ErTheme(
     double HorizontalPadding = 12,
     double CompartmentPadding = 6,
     double EmptyCompartmentHeight = 8,
-    double MinWidth = 104,
-    double MarkerSize = 10)
+    double MinWidth = 104)
 {
     /// <summary>Paint for the relationship lines and their labels.</summary>
-    public GraphEdgePaint Edge { get; init; } = GraphEdgePaint.Default with { EndLabelGap = 22 };
+    public GraphEdgePaint Edge { get; init; } = GraphEdgePaint.Default with { EndLabelGap = 22, MarkerSize = 10 };
 
     /// <summary>The defaults documented in docs/phases/phase-4-additional-diagrams.md.</summary>
     public static ErTheme Default { get; } = new();

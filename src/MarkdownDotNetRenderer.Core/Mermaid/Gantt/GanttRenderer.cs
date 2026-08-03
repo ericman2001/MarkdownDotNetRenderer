@@ -228,9 +228,8 @@ public sealed class GanttRenderer : IDiagramRenderer
                         GraphGeometry.PointPair(row.BarLeft, row.CenterY + half),
                         GraphGeometry.PointPair(row.BarLeft - half, row.CenterY)))
                 .Attribute("fill", _theme.MilestoneFill)
-                .Attribute(
-                    "stroke", row.Task.IsCritical ? _theme.CriticalStroke : _theme.MilestoneFill)
-                .Attribute("stroke-width", _theme.BarStrokeWidth)
+                .Attribute("stroke", _theme.Stroke(row.Task))
+                .Attribute("stroke-width", _theme.StrokeWidth(row.Task))
                 .EndElement();
         }
         else
@@ -243,9 +242,8 @@ public sealed class GanttRenderer : IDiagramRenderer
                 .Attribute("rx", _theme.BarStrokeWidth * 2)
                 .Attribute("ry", _theme.BarStrokeWidth * 2)
                 .Attribute("fill", _theme.Fill(row.Task.State))
-                .Attribute(
-                    "stroke", row.Task.IsCritical ? _theme.CriticalStroke : _theme.BarStroke)
-                .Attribute("stroke-width", _theme.BarStrokeWidth)
+                .Attribute("stroke", _theme.Stroke(row.Task))
+                .Attribute("stroke-width", _theme.StrokeWidth(row.Task))
                 .EndElement();
         }
 

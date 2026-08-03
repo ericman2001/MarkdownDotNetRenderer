@@ -37,7 +37,6 @@ namespace MarkdownDotNetRenderer.Mermaid.State;
 /// <param name="VerticalPadding">Padding above and below a label inside its box.</param>
 /// <param name="MinWidth">Smallest state box width.</param>
 /// <param name="MinHeight">Smallest state box height.</param>
-/// <param name="MarkerSize">Arrowhead marker size, in stroke-width units.</param>
 public sealed record StateTheme(
     string StateFill = "#ffffff",
     string StateStroke = "#33415a",
@@ -53,11 +52,10 @@ public sealed record StateTheme(
     double HorizontalPadding = 20,
     double VerticalPadding = 12,
     double MinWidth = 56,
-    double MinHeight = 32,
-    double MarkerSize = 8)
+    double MinHeight = 32)
 {
     /// <summary>Paint for the transition lines and their labels.</summary>
-    public GraphEdgePaint Edge { get; init; } = GraphEdgePaint.Default;
+    public GraphEdgePaint Edge { get; init; } = GraphEdgePaint.Default with { MarkerSize = 8 };
 
     /// <summary>The defaults documented in docs/phases/phase-4-additional-diagrams.md.</summary>
     public static StateTheme Default { get; } = new();

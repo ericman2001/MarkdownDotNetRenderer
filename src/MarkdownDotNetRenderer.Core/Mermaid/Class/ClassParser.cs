@@ -174,6 +174,18 @@ public static class ClassParser
 
             if (TryParseRelation(line, out ClassRelation? relation))
             {
+                // An end written as a generic names the same box as the plain name does.
+                relation = relation with
+                {
+                    SourceId = ClassName(relation.SourceId),
+                    TargetId = ClassName(relation.TargetId),
+                };
+
+                if (relation.SourceId.Length == 0 || relation.TargetId.Length == 0)
+                {
+                    continue;
+                }
+
                 Ensure(relation.SourceId);
                 Ensure(relation.TargetId);
                 relations.Add(relation);
@@ -260,7 +272,7 @@ public static class ClassParser
         {
             ClassBuilder builder = byName[order[i]];
             classes.Add(new ClassDefinition(
-                builder.Name, builder.Annotation, builder.Members, i));
+                builder.Name, builder.Annotation, builder.Members, i, builder.TypeParameters));
         }
 
         return new ClassParseResult(
@@ -312,17 +324,25 @@ public static class ClassParser
                 text.Contains('(', StringComparison.Ordinal)));
         }
 
-        // 'class Foo~T~' and 'class Foo["label"]' keep only the plain name; generics stay as text.
+        // 'class Foo~T~' and 'class Foo["label"]' are both the class 'Foo'; a generic's type
+        // parameters are remembered for its caption instead of becoming part of its id.
         string ClassName(string raw)
         {
-            string name = MermaidLines.Unquote(raw);
+            (string name, string? parameters) = SplitTypeParameters(MermaidLines.Unquote(raw));
             int bracket = name.IndexOf('[', StringComparison.Ordinal);
             if (bracket > 0)
             {
                 name = name[..bracket];
             }
 
-            return MermaidLines.Truncate(name.Trim(), MaxTextLength);
+            name = MermaidLines.Truncate(name.Trim(), MaxTextLength);
+            if (parameters is { Length: > 0 } && name.Length > 0)
+            {
+                Ensure(name);
+                byName[name].TypeParameters ??= parameters;
+            }
+
+            return name;
         }
     }
 
@@ -418,6 +438,28 @@ public static class ClassParser
         return (MermaidLines.Truncate(value, MaxTextLength), null);
     }
 
+    /// <summary>
+    /// Splits the type parameters of a generic such as <c>Repo~T~</c> away from its name, so that
+    /// the name alone identifies the class and matches a plain <c>Repo</c> elsewhere.
+    /// </summary>
+    /// <param name="text">The class reference as written.</param>
+    /// <returns>The bare name and the type parameters, if any.</returns>
+    public static (string Name, string? TypeParameters) SplitTypeParameters(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        int open = text.IndexOf('~', StringComparison.Ordinal);
+        int close = text.LastIndexOf('~');
+        if (open <= 0 || close <= open + 1)
+        {
+            return (text, null);
+        }
+
+        return (
+            text[..open] + text[(close + 1)..],
+            MermaidLines.Truncate(text[(open + 1)..close].Trim(), MaxTextLength));
+    }
+
     private static FlowDirection ParseDirection(
         string line,
         IList<RenderDiagnostic> diagnostics,
@@ -453,6 +495,8 @@ public static class ClassParser
         public string Name { get; } = name;
 
         public string? Annotation { get; set; }
+
+        public string? TypeParameters { get; set; }
 
         public List<ClassMember> Members { get; } = [];
     }

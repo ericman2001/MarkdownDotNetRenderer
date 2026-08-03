@@ -51,6 +51,10 @@ classDiagram
         +bool Success
         +string SvgFragment
     }
+    class Registry~TRenderer~ {
+        +Add(renderer)
+    }
+    Registry o-- IDiagramRenderer : holds
     IDiagramRenderer <|.. FlowchartRenderer
     IDiagramRenderer <|.. PieRenderer
     FlowchartRenderer ..> DiagramRenderResult : returns

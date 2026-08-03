@@ -79,10 +79,8 @@ public sealed class ClassRenderer : IDiagramRenderer
 
         ClassDiagramModel model = parsed.Model;
         double fontSize = DiagramDefaults.ResolveFontSize(options);
-        string idPrefix = DiagramIds.ForSource(mermaidSource);
 
-        ClassLayoutResult layout =
-            ClassLayoutEngine.Compute(model, fontSize, _theme, _metrics, idPrefix);
+        ClassLayoutResult layout = ClassLayoutEngine.Compute(model, fontSize, _theme, _metrics);
         if (!layout.Success || layout.Layout is null)
         {
             return DiagramRenderResult.Failed(
@@ -95,7 +93,7 @@ public sealed class ClassRenderer : IDiagramRenderer
             $"class diagram with {model.Classes.Count} classes and {model.Relations.Count} relations";
         GraphCanvas canvas = GraphCanvas.Measure(
             layout.Layout.Placement, _theme.Edge, fontSize, _metrics.Margin);
-        string svg = Emit(layout.Layout, canvas, options, fontSize, idPrefix, altText);
+        string svg = Emit(layout.Layout, canvas, options, fontSize, altText);
 
         return new DiagramRenderResult(
             true,
@@ -111,20 +109,10 @@ public sealed class ClassRenderer : IDiagramRenderer
         GraphCanvas canvas,
         RenderOptions options,
         double fontSize,
-        string idPrefix,
         string altText)
     {
         var svg = new SvgBuilder();
         DiagramSvg.StartRoot(svg, canvas.Width, canvas.Height, options, altText, "mdnr-class");
-
-        GraphMarkers.EmitDefs(
-            svg,
-            idPrefix,
-            layout.Markers,
-            _theme.Edge.Stroke,
-            _theme.Edge.StrokeWidth,
-            _theme.BoxFill,
-            _theme.MarkerSize);
 
         canvas.StartShift(svg);
 
@@ -145,11 +133,7 @@ public sealed class ClassRenderer : IDiagramRenderer
         svg.EndElement();
 
         svg.StartElement("g").Attribute("class", "mdnr-relation-labels");
-        foreach (PlacedEdge edge in layout.Placement.Edges)
-        {
-            GraphEdgePainter.EmitLabels(
-                svg, edge, layout.Placement, _theme.Edge, options, fontSize);
-        }
+        GraphEdgePainter.EmitLabels(svg, layout.Placement, _theme.Edge, options, fontSize);
 
         svg.EndElement();
 

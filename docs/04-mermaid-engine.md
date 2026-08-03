@@ -316,17 +316,30 @@ design-validation point the phase existed to prove.
 
 Three of them are graph-shaped, so they share one set of helpers rather than forking the
 flowchart: `Graph/GraphLayoutAdapter.cs` wraps `LayeredLayout` behind a `GraphNodeSpec` /
-`GraphEdgeSpec` pair, `Graph/GraphEdgePainter.cs` routes and strokes the edges (including
-`marker-start`, added for ER), `Graph/GraphMarkers.cs` owns the marker glyph set, and
-`Graph/DiagramSvg.cs` and `Graph/SvgText.cs` own the root envelope and text emission.
+`GraphEdgeSpec` pair, `Graph/GraphEdgePainter.cs` routes and strokes the edges and draws a glyph at
+either end, `Graph/GraphMarkers.cs` owns the glyph set, and `Graph/DiagramSvg.cs` and
+`Graph/SvgText.cs` own the root envelope and text emission.
+
+Those end glyphs are drawn as ordinary geometry — a `<g>` translated to the endpoint and rotated to
+follow its line — rather than referenced through an SVG `<marker>`. A `<marker>` is the part of SVG
+the ODT rasterizer does not implement, which silently dropped the ER cardinality bars; plain paths
+render everywhere and keep the fragment self-contained, with no `<defs>` ids to keep unique per
+document. The line stops a glyph's length short of the box (`GraphMarkers.EndpointInset`) so the
+glyph is not painted underneath it.
+
+Edge labels are opaque, so they are placed for the diagram as a whole (`GraphEdgePainter.LabelAnchors`
+over a `GraphPlacement`) rather than one edge at a time: each label is nudged off every box and off
+the labels already placed, in edge order, by a bounded number of passes. Placing them per edge could
+only see that edge's two boxes, which let a cardinality land on a bystander box or on another edge's
+cardinality.
 
 | Type | Layout | Notes |
 | --- | --- | --- |
 | `pie` | Trigonometry, no solver | Fixed centre/radius; the last wedge takes the remaining angle so rounding can never leave a hairline gap. `PieTheme.Palette` is a fixed, colour-blind-friendly eight-colour cycle, indexed by slice order |
 | `stateDiagram`, `stateDiagram-v2` | `LayeredLayout` | `[*]` becomes the synthetic `__start`/`__end` nodes drawn as filled circles; ordinary states are stadiums, notes are dashed boxes |
-| `classDiagram` | `LayeredLayout` | Three compartments (name/annotation, attributes, operations) divided by lines, sized by the widest member; each relation kind maps to one marker end plus an optional dashed stroke |
-| `erDiagram` | `LayeredLayout` | Two-compartment entity boxes; each end of a relationship carries its own crow's-foot marker, so the four cardinality glyphs appear at both `marker-start` and `marker-end` |
-| `gantt` | Linear date → x scale, no solver | `DateOnly` arithmetic with `InvariantCulture` only; the axis tick step is picked from a fixed candidate list (`1, 2, 7, 14, 28, 56, 112, 364` days) as the smallest one that keeps ticks `MinTickSpacing` apart |
+| `classDiagram` | `LayeredLayout` | Three compartments (name/annotation, attributes, operations) divided by lines, sized by the widest member; each relation kind maps to one end glyph plus an optional dashed stroke; a generic's type parameters (`Repo~T~`) are not part of its identity, so a later plain `Repo` is the same box, captioned `Repo<T>` |
+| `erDiagram` | `LayeredLayout` | Two-compartment entity boxes; each end of a relationship carries its own crow's-foot glyph, so the four cardinality glyphs appear at both ends of the line |
+| `gantt` | Linear date → x scale, no solver | `DateOnly` arithmetic with `InvariantCulture` only; a `crit` bar's outline is drawn wider than a plain bar's so it survives being rasterized into a document; the axis tick step is picked from a fixed candidate list (`1, 2, 7, 14, 28, 56, 112, 364` days) as the smallest one that keeps ticks `MinTickSpacing` apart |
 
 Every one of these is a pure function of its model: no iterative solving, no dictionary
 enumeration order in the output, and all numbers formatted through `SvgBuilder.Number`, so
