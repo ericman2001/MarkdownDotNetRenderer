@@ -30,6 +30,9 @@ public sealed class ClassDiagramTests
 {
     private static readonly XNamespace Svg = "http://www.w3.org/2000/svg";
 
+    /// <summary>How finely a relation line is sampled when checking a label does not cover it.</summary>
+    private const int LineSamples = 200;
+
     private const string Simple = """
         classDiagram
             class Animal {
@@ -261,6 +264,39 @@ public sealed class ClassDiagramTests
                     $"label {labels[i]} covers label {labels[j]}");
             }
         }
+
+        // Nor over a relation line, whose stroke an opaque rect would break into dashes, which in a
+        // class diagram would read as a dependency.
+        Assert.All(
+            svg.Descendants(Svg + "g")
+                .Where(group => group.Attribute("class")?.Value == "mdnr-edge")
+                .Elements(Svg + "line"),
+            line => Assert.All(labels, label => Assert.False(
+                Crosses(label, line),
+                $"label {label} covers line {line}")));
+    }
+
+    private static bool Crosses(XElement label, XElement line)
+    {
+        double x = Number(label, "x");
+        double y = Number(label, "y");
+        double fromX = Number(line, "x1");
+        double fromY = Number(line, "y1");
+        double runX = Number(line, "x2") - fromX;
+        double runY = Number(line, "y2") - fromY;
+        for (int step = 0; step <= LineSamples; step++)
+        {
+            double along = (double)step / LineSamples;
+            double atX = fromX + (runX * along);
+            double atY = fromY + (runY * along);
+            if (atX > x && atX < x + Number(label, "width") &&
+                atY > y && atY < y + Number(label, "height"))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     [Fact]
