@@ -69,15 +69,28 @@ public static class GraphEdgePainter
     /// <summary>How many times a label is swept out of the boxes it overlaps.</summary>
     private const int ClearancePasses = 4;
 
-    /// <summary>How many label-heights out an end label may be tried before giving up.</summary>
-    private const int ClearanceRungs = 8;
+    /// <summary>How many rungs out an end label may be tried before giving up.</summary>
+    private const int ClearanceRungs = 12;
 
     /// <summary>
-    /// The order the four ways out of a crowded spot are tried in, so a label lands above its
-    /// endpoint where it can and the choice never depends on anything but the geometry.
+    /// The eight ways out of a crowded spot, in the order ties between equally near candidates are
+    /// broken, so the choice never depends on anything but the geometry.
     /// </summary>
     private static readonly (double X, double Y)[] CandidateDirections =
-        [(0, -1), (0, 1), (1, 0), (-1, 0)];
+    [
+        (0, -1), (0, 1), (1, 0), (-1, 0),
+        (Diagonal, -Diagonal), (Diagonal, Diagonal),
+        (-Diagonal, -Diagonal), (-Diagonal, Diagonal),
+    ];
+
+    /// <summary>The component of a unit vector at 45 degrees.</summary>
+    private const double Diagonal = 0.70710678118654752;
+
+    /// <summary>
+    /// What one overlap costs a candidate label spot, against 1 for drifting out past the boxes:
+    /// drifting is only untidy, where an overlap erases something.
+    /// </summary>
+    private const int OverlapCost = 4;
 
     /// <summary>Emits one edge's geometry.</summary>
     /// <param name="svg">The builder to write to.</param>
@@ -371,9 +384,10 @@ public static class GraphEdgePainter
         // An end label has to clear three kinds of thing at once — the boxes, the labels already
         // placed, and every connector, whose stroke its opaque rect would otherwise break into what
         // reads as a dashed line. Escaping them one at a time only trades one overlap for another,
-        // so instead a fixed ladder of candidate offsets is tried in order and the first candidate
-        // clear of everything wins; that terminates, and picking the least bad candidate when none
-        // is clear keeps the result defined for a diagram with nowhere to put the label.
+        // so instead a fixed ladder of candidate offsets around the anchor is scored against all
+        // three at once and the nearest clear candidate wins — nearest, because a label far from the
+        // line it annotates no longer says which relation it belongs to. That terminates, and taking
+        // the least bad candidate when none is clear keeps the result defined either way.
         LayoutPoint? PlaceClear(string text, LayoutPoint? anchor)
         {
             if (anchor is not { } at)
@@ -384,24 +398,27 @@ public static class GraphEdgePainter
             NodeSize label = LabelBoxSize(text, paint, fontSize);
             double halfWidth = (label.Width / 2) + paint.LabelClearance;
             double halfHeight = (label.Height / 2) + paint.LabelClearance;
-            double step = label.Height + paint.LabelClearance;
+            double step = (label.Height / 2) + paint.LabelClearance;
             LayoutPoint best = at;
             int fewest = int.MaxValue;
+
+            // Rungs are walked outwards and every direction on a rung is the same distance out, so
+            // the first clear candidate found is a nearest one.
             for (int rung = 0; rung <= ClearanceRungs; rung++)
             {
                 foreach ((double dirX, double dirY) in CandidateDirections)
                 {
                     var candidate = new LayoutPoint(
                         at.X + (dirX * step * rung), at.Y + (dirY * step * rung));
-                    int overlaps = Overlaps(candidate, halfWidth, halfHeight);
-                    if (overlaps == 0)
+                    int cost = Cost(candidate, halfWidth, halfHeight);
+                    if (cost == 0)
                     {
                         return candidate;
                     }
 
-                    if (overlaps < fewest)
+                    if (cost < fewest)
                     {
-                        fewest = overlaps;
+                        fewest = cost;
                         best = candidate;
                     }
 
@@ -415,15 +432,20 @@ public static class GraphEdgePainter
             return best;
         }
 
-        int Overlaps(LayoutPoint at, double halfWidth, double halfHeight)
+        int Cost(LayoutPoint at, double halfWidth, double halfHeight)
         {
-            int count = 0;
+            // Leaving the area the boxes occupy counts against a candidate too: the canvas grows to
+            // fit it, but a label out in the empty margin reads less as belonging to its line.
+            int count = at.X - halfWidth < 0 || at.X + halfWidth > placement.Width ||
+                at.Y - halfHeight < 0 || at.Y + halfHeight > placement.Height
+                ? 1
+                : 0;
             foreach (LabelRect box in Obstacles())
             {
                 if (at.X + halfWidth > box.Left && at.X - halfWidth < box.Left + box.Width &&
                     at.Y + halfHeight > box.Top && at.Y - halfHeight < box.Top + box.Height)
                 {
-                    count++;
+                    count += OverlapCost;
                 }
             }
 
@@ -432,7 +454,7 @@ public static class GraphEdgePainter
                 // A segment the rect does not meet leaves the rect's centre where it is.
                 if (PushOffSegment(at, halfWidth, halfHeight, from, to) != at)
                 {
-                    count++;
+                    count += OverlapCost;
                 }
             }
 
