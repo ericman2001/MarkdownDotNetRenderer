@@ -7,11 +7,12 @@ A **pure C#** renderer that turns GitHub-Flavored Markdown — including embedde
 (**ODT**, then **DOCX**) you can hand to anyone, with **no JavaScript anywhere in the rendering
 path**.
 
-> **Status: phases 1–3 (HTML + ODT, flowcharts and sequence diagrams) complete.** `mdrender` turns
-> Markdown containing ` ```mermaid ` `flowchart`/`graph`/`sequenceDiagram` blocks into a single
+> **Status: phases 1–4 (HTML + ODT, seven diagram types) complete.** `mdrender` turns
+> Markdown containing ` ```mermaid ` `flowchart`/`graph`, `sequenceDiagram`, `pie`,
+> `stateDiagram`, `classDiagram`, `erDiagram`, and `gantt` blocks into a single
 > self-contained HTML file with inline, hand-written SVG, or into an OpenDocument Text file whose
 > diagrams are native, vector SVG pictures — still with no new dependency. The DOCX writer
-> ([phase 5](docs/phases/phase-5-docx.md)) and the remaining diagram types are still to come;
+> ([phase 5](docs/phases/phase-5-docx.md)) and the lower-priority diagram types are still to come;
 > selecting them reports a clear error or degrades to a code block. Start with
 > [docs/01-overview.md](docs/01-overview.md).
 
@@ -89,7 +90,12 @@ convert-on-import path.
 | --- | --- |
 | `flowchart` / `graph` (TD, LR) | [Phase 1](docs/phases/phase-1-html-flowchart.md) — implemented |
 | `sequenceDiagram` | [Phase 3](docs/phases/phase-3-sequence-diagrams.md) — implemented |
-| `pie`, `stateDiagram`, `classDiagram`, `erDiagram`, `gantt`, then others | [Phase 4](docs/phases/phase-4-additional-diagrams.md) (prioritized) |
+| `pie` | [Phase 4](docs/phases/phase-4-additional-diagrams.md) — implemented |
+| `stateDiagram` / `stateDiagram-v2` | [Phase 4](docs/phases/phase-4-additional-diagrams.md) — implemented |
+| `classDiagram` | [Phase 4](docs/phases/phase-4-additional-diagrams.md) — implemented |
+| `erDiagram` | [Phase 4](docs/phases/phase-4-additional-diagrams.md) — implemented |
+| `gantt` | [Phase 4](docs/phases/phase-4-additional-diagrams.md) — implemented |
+| `gitGraph`, `journey`, `mindmap`, `quadrantChart`, `xychart-beta` | [Phase 4](docs/phases/phase-4-additional-diagrams.md) — deferred, lower priority |
 | Anything not yet implemented | Falls back to a code block with a warning diagnostic — never an exception |
 
 ## Usage
@@ -148,7 +154,7 @@ acceptance criteria — so it can be handed off and executed independently.
 | 1 | [HTML + flowcharts](docs/phases/phase-1-html-flowchart.md) | The vertical slice: Markdown → self-contained HTML with inline flowchart SVG, plus the CLI |
 | 2 | [ODF (ODT) output](docs/phases/phase-2-odf-output.md) | `OdtDocumentWriter`: LibreOffice/OpenOffice output with native SVG and no new dependency |
 | 3 | [Sequence diagrams](docs/phases/phase-3-sequence-diagrams.md) | `sequenceDiagram` support with a deterministic, solver-free layout |
-| 4 | [Additional diagrams](docs/phases/phase-4-additional-diagrams.md) | Prioritized roadmap: `pie`, `stateDiagram`, `classDiagram`, `erDiagram`, `gantt`, … |
+| 4 | [Additional diagrams](docs/phases/phase-4-additional-diagrams.md) | `pie`, `stateDiagram`, `classDiagram`, `erDiagram`, and `gantt`, each with a deterministic, solver-free layout |
 | 5 | [DOCX](docs/phases/phase-5-docx.md) | `DocxDocumentWriter` with SVG-only diagram embedding |
 | 6 | [DOCX PNG fallback](docs/phases/phase-6-docx-png-fallback.md) | **Deferred/optional**: rasterization for older Word, and the dependency/AOT tradeoff |
 

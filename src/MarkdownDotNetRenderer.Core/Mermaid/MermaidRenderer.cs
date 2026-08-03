@@ -14,8 +14,13 @@
 // with this library; see the file LICENSE.LESSER. If not, see
 // <https://www.gnu.org/licenses/>.
 
+using MarkdownDotNetRenderer.Mermaid.Class;
+using MarkdownDotNetRenderer.Mermaid.Er;
 using MarkdownDotNetRenderer.Mermaid.Flowchart;
+using MarkdownDotNetRenderer.Mermaid.Gantt;
+using MarkdownDotNetRenderer.Mermaid.Pie;
 using MarkdownDotNetRenderer.Mermaid.Sequence;
+using MarkdownDotNetRenderer.Mermaid.State;
 
 namespace MarkdownDotNetRenderer.Mermaid;
 
@@ -55,10 +60,21 @@ public sealed class MermaidRenderer
     /// <summary>The diagram-type keywords this instance can render.</summary>
     public IReadOnlyCollection<string> SupportedDiagramTypes => _registry.Keys;
 
-    /// <summary>The built-in renderer list for this phase: flowcharts and sequence diagrams.</summary>
+    /// <summary>
+    /// The built-in renderer list: flowcharts, sequence diagrams, and the phase-4 additions — pie
+    /// charts, state, class, ER, and Gantt diagrams.
+    /// </summary>
     /// <returns>Freshly constructed renderers.</returns>
     public static IReadOnlyList<IDiagramRenderer> CreateBuiltInRenderers() =>
-        [new FlowchartRenderer(), new SequenceRenderer()];
+        [
+            new FlowchartRenderer(),
+            new SequenceRenderer(),
+            new PieRenderer(),
+            new StateRenderer(),
+            new ClassRenderer(),
+            new ErRenderer(),
+            new GanttRenderer(),
+        ];
 
     /// <summary>
     /// Renders one mermaid block. Never throws: an unknown type yields

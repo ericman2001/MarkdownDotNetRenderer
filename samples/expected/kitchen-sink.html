@@ -287,8 +287,8 @@ RenderResult result = await renderer.RenderAsync(markdown, new RenderOptions());
 </figure>
 <h2 id="degraded-diagrams">Degraded diagrams</h2>
 <p>An unsupported diagram type falls back to an escaped code block with one <code>MERMAID001</code> warning:</p>
-<pre><code class="language-mermaid">gantt
-    title Not until phase 4
+<pre><code class="language-mermaid">mindmap
+    root((Not implemented yet))
 </code></pre>
 <p>A malformed flowchart falls back with <code>MERMAID002</code>:</p>
 <pre><code class="language-mermaid">flowchart TD

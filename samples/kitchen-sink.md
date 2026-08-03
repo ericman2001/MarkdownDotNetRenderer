@@ -82,8 +82,8 @@ graph LR
 An unsupported diagram type falls back to an escaped code block with one `MERMAID001` warning:
 
 ```mermaid
-gantt
-    title Not until phase 4
+mindmap
+    root((Not implemented yet))
 ```
 
 A malformed flowchart falls back with `MERMAID002`:

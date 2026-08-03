@@ -177,6 +177,33 @@ if ! grep -qaF -- 'Pictures/diagram-1.svg' "$SEQ_ODT"; then
   fail
 fi
 
+echo "==> Smoke run of native binary (phase 4 diagram gallery)"
+GALLERY_HTML="$SMOKE_DIR/diagram-gallery.html"
+GALLERY_ODT="$SMOKE_DIR/diagram-gallery.odt"
+"$BINARY" --input samples/diagram-gallery.md --output "$GALLERY_HTML" --format html
+"$BINARY" --input samples/diagram-gallery.md --output "$GALLERY_ODT" --format odt
+
+for needle in 'mdnr-pie' 'mdnr-state' 'mdnr-class' 'mdnr-er' 'mdnr-gantt'; do
+  if ! grep -qF -- "$needle" "$GALLERY_HTML"; then
+    echo "Gallery smoke render is missing expected content: $needle" >&2
+    fail
+  fi
+done
+
+# The verbatim source only survives when a diagram fell back to a code block.
+for needle in 'stateDiagram-v2' 'classDiagram' 'erDiagram' 'dateFormat'; do
+  if grep -qF -- "$needle" "$GALLERY_HTML"; then
+    echo "Gallery smoke render fell back to a code block for: $needle" >&2
+    fail
+  fi
+done
+
+# One picture part per diagram in the gallery, so the highest-numbered one must exist too.
+if ! grep -qaF -- 'Pictures/diagram-5.svg' "$GALLERY_ODT"; then
+  echo "Gallery ODT smoke render is missing a diagram picture part." >&2
+  fail
+fi
+
 # Formats whose writers have not shipped must fail loudly rather than write a broken file.
 # A non-zero exit is the expectation here, so the ERR trap has to stand down for one command.
 trap - ERR

@@ -88,7 +88,7 @@ public sealed class MermaidDispatchTests
         var renderer = new MermaidRenderer();
 
         DiagramRenderResult result = renderer.Render(
-            "gantt\n  title Later\n", RenderOptions.Html);
+            "mindmap\n  root((Later))\n", RenderOptions.Html);
 
         Assert.False(result.Success);
         Assert.Null(result.SvgFragment);
@@ -111,12 +111,23 @@ public sealed class MermaidDispatchTests
     }
 
     [Fact]
-    public void The_Registry_Is_Explicit_And_Covers_Only_This_Phase()
+    public void The_Registry_Is_Explicit_And_Covers_Every_Implemented_Type()
     {
         var renderer = new MermaidRenderer();
 
         Assert.Equal(
-            ["flowchart", "graph", "sequenceDiagram"],
+            [
+                "classDiagram",
+                "classDiagram-v2",
+                "erDiagram",
+                "flowchart",
+                "gantt",
+                "graph",
+                "pie",
+                "sequenceDiagram",
+                "stateDiagram",
+                "stateDiagram-v2",
+            ],
             renderer.SupportedDiagramTypes.OrderBy(t => t, StringComparer.Ordinal));
     }
 
@@ -125,11 +136,11 @@ public sealed class MermaidDispatchTests
     {
         var renderer = new MarkdownRenderer();
         RenderResult result = await renderer.RenderAsync(
-            "```mermaid\nclassDiagram\n  Alice : <hi>\n```\n", RenderOptions.Html);
+            "```mermaid\nmindmap\n  root((<hi>))\n```\n", RenderOptions.Html);
         string html = Encoding.UTF8.GetString(result.Content.Span);
 
         Assert.Contains("<pre><code class=\"language-mermaid\">", html, StringComparison.Ordinal);
-        Assert.Contains("Alice : &lt;hi&gt;", html, StringComparison.Ordinal);
+        Assert.Contains("root((&lt;hi&gt;))", html, StringComparison.Ordinal);
         Assert.DoesNotContain("<svg", html, StringComparison.Ordinal);
 
         RenderDiagnostic diagnostic = Assert.Single(result.Diagnostics);
