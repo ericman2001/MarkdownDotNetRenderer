@@ -55,6 +55,19 @@ that glyph is occluded. Confirm in the browser by nudging the line's `x1/x2` in 
 glyph pops into view. Note the ODT/PDF render may still show the glyph, so a browser check is
 required; the ODT path also drops SVG marker `||` bars and `crit` styling.
 
+## Coordinates inside `mdnr-*` groups are pre-shift
+
+Geometry emitted inside the diagram groups is in the layout's own space; the renderer wraps the
+drawing in `<g transform="translate(ox oy)">` computed by `GraphCanvas`. Parse that offset and apply
+it before comparing anything against the `viewBox`, otherwise a rect at `y = -18` looks off-canvas
+when it actually lands in the top margin. Label-vs-box and label-vs-line checks are unaffected
+(same space). Glyph transforms use **space**-separated args: `translate(161.19 82) rotate(0)
+scale(1.2) translate(-9 -5)` — a regex expecting `translate(x,y)` silently matches nothing.
+
+A "label far from its own line" heuristic based only on `<line>` elements produces false positives:
+self-loops and dashed edges are `<path>`, so their labels always measure far away. Confirm those
+visually.
+
 ## Checking the ODT
 
 ```bash
