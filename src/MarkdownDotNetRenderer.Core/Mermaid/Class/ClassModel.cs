@@ -49,16 +49,25 @@ public enum ClassRelationKind
 public sealed record ClassMember(string Text, bool IsOperation);
 
 /// <summary>A class box.</summary>
-/// <param name="Name">The class name, which is also its id.</param>
+/// <param name="Name">The class name, which is also its id; a generic's type parameters are not
+/// part of it, so <c>Repo~T~</c> and a later <c>Repo</c> are the same box.</param>
 /// <param name="Annotation">A stereotype such as <c>&lt;&lt;interface&gt;&gt;</c>, or <see langword="null"/>.</param>
 /// <param name="Members">Members in source order.</param>
 /// <param name="Order">0-based index of first mention, which fixes layout tie-breaking.</param>
+/// <param name="TypeParameters">The type parameters between the tildes of a generic such as
+/// <c>Repo~T~</c>, or <see langword="null"/> for a plain class.</param>
 public sealed record ClassDefinition(
     string Name,
     string? Annotation,
     IReadOnlyList<ClassMember> Members,
-    int Order)
+    int Order,
+    string? TypeParameters = null)
 {
+    /// <summary>The caption drawn in the box's name compartment.</summary>
+    public string Title => TypeParameters is { Length: > 0 } parameters
+        ? $"{Name}<{parameters}>"
+        : Name;
+
     /// <summary>The members shown in the attributes compartment.</summary>
     public IEnumerable<ClassMember> Attributes => Members.Where(member => !member.IsOperation);
 

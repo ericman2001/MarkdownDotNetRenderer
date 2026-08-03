@@ -48,8 +48,8 @@ public sealed record GraphNodeSpec(
 /// <param name="TargetId">Id of the target node.</param>
 /// <param name="Label">Mid-edge label, or <see langword="null"/>.</param>
 /// <param name="Line">How the line is stroked.</param>
-/// <param name="StartMarkerId">Marker id drawn at the source end, or <see langword="null"/>.</param>
-/// <param name="EndMarkerId">Marker id drawn at the target end, or <see langword="null"/>.</param>
+/// <param name="StartMarker">Glyph drawn at the source end, or <see langword="null"/>.</param>
+/// <param name="EndMarker">Glyph drawn at the target end, or <see langword="null"/>.</param>
 /// <param name="StartLabel">Small label near the source end (a cardinality), or <see langword="null"/>.</param>
 /// <param name="EndLabel">Small label near the target end (a cardinality), or <see langword="null"/>.</param>
 /// <param name="StartMarkerInset">How far the source end stops short of its box so the start
@@ -61,8 +61,8 @@ public sealed record GraphEdgeSpec(
     string TargetId,
     string? Label = null,
     GraphLineStyle Line = GraphLineStyle.Solid,
-    string? StartMarkerId = null,
-    string? EndMarkerId = null,
+    GraphMarker? StartMarker = null,
+    GraphMarker? EndMarker = null,
     string? StartLabel = null,
     string? EndLabel = null,
     double StartMarkerInset = 0,

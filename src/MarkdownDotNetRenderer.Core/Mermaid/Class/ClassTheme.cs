@@ -32,7 +32,6 @@ namespace MarkdownDotNetRenderer.Mermaid.Class;
 /// <param name="CompartmentPadding">Padding above and below a compartment's lines.</param>
 /// <param name="EmptyCompartmentHeight">Height of a compartment with no members.</param>
 /// <param name="MinWidth">Smallest class box width.</param>
-/// <param name="MarkerSize">Relation marker size, in stroke-width units.</param>
 public sealed record ClassTheme(
     string BoxFill = "#ffffff",
     string BoxStroke = "#33415a",
@@ -43,11 +42,10 @@ public sealed record ClassTheme(
     double HorizontalPadding = 12,
     double CompartmentPadding = 6,
     double EmptyCompartmentHeight = 10,
-    double MinWidth = 96,
-    double MarkerSize = 9)
+    double MinWidth = 96)
 {
-    /// <summary>Paint for the relation lines, their labels, and their cardinalities.</summary>
-    public GraphEdgePaint Edge { get; init; } = GraphEdgePaint.Default;
+    /// <summary>Paint for the relation lines, their labels, their cardinalities, and their glyphs.</summary>
+    public GraphEdgePaint Edge { get; init; } = GraphEdgePaint.Default with { MarkerSize = 9 };
 
     /// <summary>The defaults documented in docs/phases/phase-4-additional-diagrams.md.</summary>
     public static ClassTheme Default { get; } = new();

@@ -14,6 +14,7 @@
 // with this library; see the file LICENSE.LESSER. If not, see
 // <https://www.gnu.org/licenses/>.
 
+using System.Globalization;
 using System.Xml.Linq;
 using MarkdownDotNetRenderer.Mermaid;
 using MarkdownDotNetRenderer.Mermaid.Gantt;
@@ -209,6 +210,24 @@ public sealed class GanttDiagramTests
         Assert.Equal(GanttTheme.Default.DoneFill, bars[0].Attribute("fill")!.Value);
         Assert.Equal(GanttTheme.Default.ActiveFill, bars[1].Attribute("fill")!.Value);
         Assert.Equal(GanttTheme.Default.CriticalStroke, bars[1].Attribute("stroke")!.Value);
+    }
+
+    [Fact]
+    public void A_Critical_Bar_Is_Outlined_More_Heavily_Than_A_Plain_One()
+    {
+        XElement svg = RenderSvg(Simple);
+
+        // A hairline outline disappeared once the diagram was rasterized into a document, so the
+        // crit outline is drawn wider than a plain bar's.
+        List<XElement> bars = svg.Descendants(Svg + "rect").ToList();
+        double plain = double.Parse(
+            bars[0].Attribute("stroke-width")!.Value, CultureInfo.InvariantCulture);
+        double critical = double.Parse(
+            bars[1].Attribute("stroke-width")!.Value, CultureInfo.InvariantCulture);
+
+        Assert.Equal(GanttTheme.Default.BarStrokeWidth, plain);
+        Assert.Equal(GanttTheme.Default.CriticalStrokeWidth, critical);
+        Assert.True(critical > plain);
     }
 
     [Fact]

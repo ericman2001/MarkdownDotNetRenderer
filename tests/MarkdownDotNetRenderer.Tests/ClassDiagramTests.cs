@@ -199,17 +199,46 @@ public sealed class ClassDiagramTests
     }
 
     [Fact]
-    public void A_Relation_Marker_Is_Defined_Once_And_Referenced_By_The_Line()
+    public void A_Generic_Class_Is_One_Box_Captioned_With_Its_Type_Parameters()
+    {
+        XElement svg = RenderSvg("""
+            classDiagram
+                class Repo~T~ {
+                    +Find(id)
+                }
+                Base <|-- Repo
+            """);
+
+        // The type parameters are not part of the class's identity, so the plain 'Repo' in the
+        // relation is the same box rather than a second, empty one.
+        Assert.Equal(
+            ["Base", "Repo"],
+            svg.Descendants(Svg + "g")
+                .Select(group => group.Attribute("data-id")?.Value)
+                .Where(id => id is not null)
+                .Order(StringComparer.Ordinal));
+        Assert.Contains(
+            "Repo<T>",
+            svg.Descendants(Svg + "text").Select(text => text.Value));
+    }
+
+    [Fact]
+    public void A_Relation_Glyph_Is_Drawn_As_Geometry_Beside_Its_Line()
     {
         XElement svg = RenderSvg(Simple);
 
-        XElement marker = Assert.Single(svg.Descendants(Svg + "marker"));
+        // Glyphs are real geometry rather than <marker> references, which consumers such as the
+        // ODT rasterizer do not all implement.
+        Assert.Empty(svg.Descendants(Svg + "marker"));
         XElement edge = Assert.Single(
             svg.Descendants(Svg + "g"),
             group => group.Attribute("class")?.Value == "mdnr-edge");
-        string geometry = edge.Elements().First().Attribute("marker-start")!.Value;
 
-        Assert.Equal($"url(#{marker.Attribute("id")!.Value})", geometry);
+        XElement glyph = Assert.Single(
+            edge.Elements(Svg + "g"),
+            group => group.Attribute("class")?.Value == "mdnr-edge-marker");
+        Assert.Equal("triangle", glyph.Attribute("data-marker")!.Value);
+        Assert.NotEmpty(glyph.Elements(Svg + "path"));
     }
 
     [Fact]
@@ -219,8 +248,7 @@ public sealed class ClassDiagramTests
             ClassParser.Parse(Simple).Model!,
             12,
             ClassTheme.Default,
-            new LayoutMetrics(),
-            "abc");
+            new LayoutMetrics());
 
         Assert.True(layout.Success);
         List<PlacedNode> boxes = layout.Layout!.Boxes.Select(box => box.Box).ToList();
@@ -254,9 +282,10 @@ public sealed class ClassDiagramTests
                 A "1" *-- "1" B
             """);
 
-        XElement line = svg
-            .Descendants(Svg + "line")
-            .Single(element => element.Attribute("marker-start") is not null);
+        XElement line = Assert.Single(
+            svg.Descendants(Svg + "g")
+                .Single(group => group.Attribute("class")?.Value == "mdnr-edge")
+                .Elements(Svg + "line"));
         double lineTop = Number(line, "y1");
         double boxBottom = svg
             .Descendants(Svg + "g")
@@ -268,7 +297,7 @@ public sealed class ClassDiagramTests
         // the box or the box's fill would hide it.
         double glyph = GraphMarkers.EndpointInset(
             GraphMarker.FilledDiamond,
-            ClassTheme.Default.MarkerSize,
+            ClassTheme.Default.Edge.MarkerSize,
             ClassTheme.Default.Edge.StrokeWidth);
         Assert.True(lineTop - boxBottom >= glyph, $"endpoint {lineTop} is inside box {boxBottom}");
     }
@@ -281,10 +310,13 @@ public sealed class ClassDiagramTests
                 A "1" *-- "1" B
             """);
 
-        XElement line = svg.Descendants(Svg + "line").Single(
-            element => element.Attribute("marker-start") is not null);
+        XElement line = Assert.Single(
+            svg.Descendants(Svg + "g")
+                .Single(group => group.Attribute("class")?.Value == "mdnr-edge")
+                .Elements(Svg + "line"));
         double lineX = Number(line, "x1");
-        double halfMarker = ClassTheme.Default.MarkerSize * ClassTheme.Default.Edge.StrokeWidth / 2;
+        double halfMarker =
+            ClassTheme.Default.Edge.MarkerSize * ClassTheme.Default.Edge.StrokeWidth / 2;
 
         // A label centred on the line would paint its opaque rect over the connector and over the
         // glyph the endpoint carries, both of which are drawn before it.

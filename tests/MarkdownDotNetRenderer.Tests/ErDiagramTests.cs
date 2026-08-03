@@ -144,25 +144,24 @@ public sealed class ErDiagramTests
     }
 
     [Fact]
-    public void Both_Ends_Of_A_Relationship_Carry_Their_Own_Crows_Foot_Marker()
+    public void Both_Ends_Of_A_Relationship_Carry_Their_Own_Crows_Foot_Glyph()
     {
         XElement svg = RenderSvg(Simple);
 
-        Dictionary<string, XElement> markers = svg.Descendants(Svg + "marker")
-            .ToDictionary(marker => marker.Attribute("id")!.Value, StringComparer.Ordinal);
-        Assert.Equal(2, markers.Count);
-
-        XElement geometry = svg.Descendants(Svg + "g")
+        // Both glyphs are drawn as geometry at their end of the line: an SVG <marker> at the start
+        // of a line is exactly what the ODT rasterizer dropped.
+        Assert.Empty(svg.Descendants(Svg + "marker"));
+        List<XElement> glyphs = svg.Descendants(Svg + "g")
             .Single(group => group.Attribute("class")?.Value == "mdnr-edge")
-            .Elements()
-            .First();
+            .Elements(Svg + "g")
+            .Where(group => group.Attribute("class")?.Value == "mdnr-edge-marker")
+            .ToList();
 
-        Assert.Contains(
-            markers.Keys, id => geometry.Attribute("marker-start")!.Value == $"url(#{id})");
-        Assert.Contains(
-            markers.Keys, id => geometry.Attribute("marker-end")!.Value == $"url(#{id})");
-        Assert.NotEqual(
-            geometry.Attribute("marker-start")!.Value, geometry.Attribute("marker-end")!.Value);
+        Assert.Equal(2, glyphs.Count);
+        Assert.Equal(
+            ["er-one", "er-zero-many"],
+            glyphs.Select(glyph => glyph.Attribute("data-marker")!.Value));
+        Assert.All(glyphs, glyph => Assert.NotEmpty(glyph.Elements()));
     }
 
     [Theory]
@@ -185,7 +184,9 @@ public sealed class ErDiagramTests
 
         XElement line = svg.Descendants(Svg + "line").Single();
         double glyph = GraphMarkers.EndpointInset(
-            GraphMarker.ErExactlyOne, ErTheme.Default.MarkerSize, ErTheme.Default.Edge.StrokeWidth);
+            GraphMarker.ErExactlyOne,
+            ErTheme.Default.Edge.MarkerSize,
+            ErTheme.Default.Edge.StrokeWidth);
 
         // Both glyphs are drawn behind their endpoint, i.e. inwards along the line, and the label's
         // opaque rect is painted after them.

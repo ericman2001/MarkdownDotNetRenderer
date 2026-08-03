@@ -37,6 +37,8 @@ namespace MarkdownDotNetRenderer.Mermaid.Graph;
 /// <param name="EndLabelGap">Gap between an end label (a cardinality) and its endpoint.</param>
 /// <param name="LabelClearance">Space left either side of a mid-edge label's backing rect, which
 /// sets the smallest layer gap a labelled edge can be laid out with.</param>
+/// <param name="MarkerSize">Line-end glyph width and height, in stroke-width units.</param>
+/// <param name="MarkerFill">Fill of the hollow line-end glyphs.</param>
 public sealed record GraphEdgePaint(
     string Stroke = "#55637a",
     double StrokeWidth = 1.5,
@@ -49,7 +51,9 @@ public sealed record GraphEdgePaint(
     double LabelPaddingX = 4,
     double LabelPaddingY = 2,
     double EndLabelGap = 10,
-    double LabelClearance = 8)
+    double LabelClearance = 8,
+    double MarkerSize = 9,
+    string MarkerFill = "#ffffff")
 {
     /// <summary>The defaults shared by the phase-4 graph-shaped diagram types.</summary>
     public static GraphEdgePaint Default { get; } = new();
@@ -124,6 +128,8 @@ public static class GraphEdgePainter
                 .Attribute("d", GraphGeometry.BuildRoundedPath(points, paint.CornerRadius))
                 .EndElement();
         }
+
+        EmitMarkers(svg, points, edge.Edge, paint);
 
         svg.EndElement();
     }
@@ -376,7 +382,7 @@ public static class GraphEdgePainter
         LayoutPoint firstInner = points[1];
         LayoutPoint start = GraphGeometry.Clip(
             source.CenterX, source.CenterY, source.Width, source.Height, source.Shape, firstInner);
-        if (edge.Edge.StartMarkerId is { Length: > 0 })
+        if (edge.Edge.StartMarker is not null)
         {
             start = GraphGeometry.Along(
                 start, firstInner, paint.ArrowInset + edge.Edge.StartMarkerInset);
@@ -387,7 +393,7 @@ public static class GraphEdgePainter
         LayoutPoint lastInner = points[^2];
         LayoutPoint end = GraphGeometry.Clip(
             target.CenterX, target.CenterY, target.Width, target.Height, target.Shape, lastInner);
-        if (edge.Edge.EndMarkerId is { Length: > 0 })
+        if (edge.Edge.EndMarker is not null)
         {
             end = GraphGeometry.Along(end, lastInner, paint.ArrowInset + edge.Edge.EndMarkerInset);
         }
@@ -472,17 +478,34 @@ public static class GraphEdgePainter
             svg.Attribute("stroke-dasharray", paint.DashArray);
         }
 
-        if (edge.StartMarkerId is { Length: > 0 })
-        {
-            svg.Attribute("marker-start", $"url(#{edge.StartMarkerId})");
-        }
-
-        if (edge.EndMarkerId is { Length: > 0 })
-        {
-            svg.Attribute("marker-end", $"url(#{edge.EndMarkerId})");
-        }
-
         return svg;
+    }
+
+    /// <summary>Draws the glyphs the edge's ends carry, each rotated to follow its line.</summary>
+    private static void EmitMarkers(
+        SvgBuilder svg,
+        IReadOnlyList<LayoutPoint> points,
+        GraphEdgeSpec edge,
+        GraphEdgePaint paint)
+    {
+        Emit(edge.StartMarker, points[0], points[1]);
+        Emit(edge.EndMarker, points[^1], points[^2]);
+
+        void Emit(GraphMarker? marker, LayoutPoint at, LayoutPoint from)
+        {
+            if (marker is { } glyph)
+            {
+                GraphMarkers.EmitAt(
+                    svg,
+                    glyph,
+                    at,
+                    from,
+                    paint.Stroke,
+                    paint.StrokeWidth,
+                    paint.MarkerFill,
+                    paint.MarkerSize);
+            }
+        }
     }
 
     private static void EmitBoxedText(

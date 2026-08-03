@@ -78,10 +78,9 @@ public sealed class StateRenderer : IDiagramRenderer
 
         StateDiagramModel model = parsed.Model;
         double fontSize = DiagramDefaults.ResolveFontSize(options);
-        string idPrefix = DiagramIds.ForSource(mermaidSource);
 
         StateLayoutResult layout =
-            StateLayoutEngine.Compute(model, fontSize, _theme, _metrics, idPrefix);
+            StateLayoutEngine.Compute(model, fontSize, _theme, _metrics);
         if (!layout.Success || layout.Layout is null)
         {
             return DiagramRenderResult.Failed(
@@ -94,7 +93,7 @@ public sealed class StateRenderer : IDiagramRenderer
             $"state diagram with {model.States.Count} states and {model.Transitions.Count} transitions";
         GraphCanvas canvas = GraphCanvas.Measure(
             layout.Layout.Placement, _theme.Edge, fontSize, _metrics.Margin);
-        string svg = Emit(layout.Layout, canvas, options, fontSize, idPrefix, altText);
+        string svg = Emit(layout.Layout, canvas, options, fontSize, altText);
 
         return new DiagramRenderResult(
             true,
@@ -110,20 +109,10 @@ public sealed class StateRenderer : IDiagramRenderer
         GraphCanvas canvas,
         RenderOptions options,
         double fontSize,
-        string idPrefix,
         string altText)
     {
         var svg = new SvgBuilder();
         DiagramSvg.StartRoot(svg, canvas.Width, canvas.Height, options, altText, "mdnr-state");
-
-        GraphMarkers.EmitDefs(
-            svg,
-            idPrefix,
-            [GraphMarker.Arrow],
-            _theme.Edge.Stroke,
-            _theme.Edge.StrokeWidth,
-            _theme.StateFill,
-            _theme.MarkerSize);
 
         canvas.StartShift(svg);
 

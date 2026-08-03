@@ -77,10 +77,9 @@ public sealed class ErRenderer : IDiagramRenderer
 
         ErDiagramModel model = parsed.Model;
         double fontSize = DiagramDefaults.ResolveFontSize(options);
-        string idPrefix = DiagramIds.ForSource(mermaidSource);
 
         ErLayoutResult layout = ErLayoutEngine.Compute(
-            model, fontSize, _theme, _metrics, idPrefix);
+            model, fontSize, _theme, _metrics);
         if (!layout.Success || layout.Layout is null)
         {
             return DiagramRenderResult.Failed(
@@ -93,7 +92,7 @@ public sealed class ErRenderer : IDiagramRenderer
             $"{model.Relationships.Count} relationships";
         GraphCanvas canvas = GraphCanvas.Measure(
             layout.Layout.Placement, _theme.Edge, fontSize, _metrics.Margin);
-        string svg = Emit(layout.Layout, canvas, options, fontSize, idPrefix, altText);
+        string svg = Emit(layout.Layout, canvas, options, fontSize, altText);
 
         return new DiagramRenderResult(
             true,
@@ -109,20 +108,10 @@ public sealed class ErRenderer : IDiagramRenderer
         GraphCanvas canvas,
         RenderOptions options,
         double fontSize,
-        string idPrefix,
         string altText)
     {
         var svg = new SvgBuilder();
         DiagramSvg.StartRoot(svg, canvas.Width, canvas.Height, options, altText, "mdnr-er");
-
-        GraphMarkers.EmitDefs(
-            svg,
-            idPrefix,
-            layout.Markers,
-            _theme.Edge.Stroke,
-            _theme.Edge.StrokeWidth,
-            _theme.BoxFill,
-            _theme.MarkerSize);
 
         canvas.StartShift(svg);
 

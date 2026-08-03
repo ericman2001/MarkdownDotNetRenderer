@@ -61,19 +61,16 @@ public static class StateLayoutEngine
     /// <param name="fontSize">Label font size in CSS pixels.</param>
     /// <param name="theme">Box metrics and wrap width.</param>
     /// <param name="metrics">Layered-layout geometry and guards.</param>
-    /// <param name="idPrefix">The diagram's element-id prefix, which names its arrowhead marker.</param>
     /// <returns>The layout, or a failure when a guard tripped.</returns>
     public static StateLayoutResult Compute(
         StateDiagramModel model,
         double fontSize,
         StateTheme theme,
-        LayoutMetrics metrics,
-        string idPrefix)
+        LayoutMetrics metrics)
     {
         ArgumentNullException.ThrowIfNull(model);
         ArgumentNullException.ThrowIfNull(theme);
         ArgumentNullException.ThrowIfNull(metrics);
-        ArgumentException.ThrowIfNullOrEmpty(idPrefix);
 
         double lineHeight = TextMetrics.LineHeight(fontSize);
         var lines = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
@@ -107,7 +104,6 @@ public static class StateLayoutEngine
             specs.Add(new GraphNodeSpec(state.Id, width, height, ClipShape.Box));
         }
 
-        string arrow = GraphMarkers.Id(idPrefix, GraphMarker.Arrow);
         var edges = new List<GraphEdgeSpec>(model.Transitions.Count);
         foreach (StateTransition transition in model.Transitions)
         {
@@ -116,8 +112,8 @@ public static class StateLayoutEngine
                 transition.TargetId,
                 transition.Label,
                 transition.IsNoteLink ? GraphLineStyle.Dashed : GraphLineStyle.Solid,
-                StartMarkerId: null,
-                EndMarkerId: transition.IsNoteLink ? null : arrow));
+                StartMarker: null,
+                EndMarker: transition.IsNoteLink ? null : GraphMarker.Arrow));
         }
 
         GraphPlacementResult placement = GraphLayoutAdapter.Compute(

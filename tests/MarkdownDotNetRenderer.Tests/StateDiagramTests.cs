@@ -174,9 +174,9 @@ public sealed class StateDiagramTests
         StateDiagramModel model = StateParser.Parse(Simple).Model!;
 
         StateLayoutResult first = StateLayoutEngine.Compute(
-            model, 12, StateTheme.Default, new LayoutMetrics(), "abc");
+            model, 12, StateTheme.Default, new LayoutMetrics());
         StateLayoutResult second = StateLayoutEngine.Compute(
-            model, 12, StateTheme.Default, new LayoutMetrics(), "abc");
+            model, 12, StateTheme.Default, new LayoutMetrics());
 
         Assert.True(first.Success);
         Assert.Equal(
