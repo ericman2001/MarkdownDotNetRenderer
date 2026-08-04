@@ -133,16 +133,14 @@ public sealed class MarkdownConversionTests
         SelfContainment.Assert(fallback);
     }
 
-    [Theory]
-    [InlineData(OutputFormat.Docx, "phase 5")]
-    public async Task Unimplemented_Formats_Fail_Clearly(OutputFormat format, string phase)
+    [Fact]
+    public async Task An_Unknown_Format_Fails_Clearly()
     {
         var renderer = new MarkdownRenderer();
-        NotSupportedException error = await Assert.ThrowsAsync<NotSupportedException>(
-            () => renderer.RenderAsync("# Doc\n", new RenderOptions { Format = format }));
-
-        Assert.Contains("not implemented", error.Message, StringComparison.Ordinal);
-        Assert.Contains(phase, error.Message, StringComparison.Ordinal);
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+            () => renderer.RenderAsync(
+                "# Doc\n",
+                new RenderOptions { Format = (OutputFormat)(-1) }));
     }
 
     [Fact]
@@ -171,11 +169,13 @@ public sealed class MarkdownConversionTests
     }
 
     [Fact]
-    public async Task RenderFileAsync_Refuses_Unimplemented_Formats_Before_Reading_Input()
+    public async Task RenderFileAsync_Refuses_An_Unknown_Format_Before_Reading_Input()
     {
         var renderer = new MarkdownRenderer();
-        await Assert.ThrowsAsync<NotSupportedException>(() => renderer.RenderFileAsync(
-            "does-not-exist.md", "out.docx", RenderOptions.Docx));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => renderer.RenderFileAsync(
+            "does-not-exist.md",
+            "out.bin",
+            new RenderOptions { Format = (OutputFormat)(-1) }));
     }
 
     [Fact]

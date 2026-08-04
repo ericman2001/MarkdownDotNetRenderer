@@ -8,11 +8,13 @@ dependency.
 | Package | Used by | License | LGPLv3 compatible as a dependency? |
 | --- | --- | --- | --- |
 | [Markdig](https://www.nuget.org/packages/Markdig) | Core (all phases) | BSD-2-Clause | Yes — permissive, no reciprocal obligations |
-| [DocumentFormat.OpenXml](https://www.nuget.org/packages/DocumentFormat.OpenXml) | Planned phase 5 only; not referenced today | MIT | Yes — permissive |
+| [DocumentFormat.OpenXml](https://www.nuget.org/packages/DocumentFormat.OpenXml) `3.5.1` (exact) | Core, DOCX writer only (`Writers/Docx/*`) | MIT | Yes — permissive |
 | xUnit (+ `xunit.runner.visualstudio`, `Microsoft.NET.Test.Sdk`) | Tests only | Apache-2.0 / MIT | Yes; test-only, never shipped |
 
-Core currently uses one runtime package, `Markdig`. The second package in the budget arrives with
-[phase 5](phases/phase-5-docx.md) for DOCX support.
+Core uses both runtime packages of the budget: `Markdig` for parsing and
+`DocumentFormat.OpenXml` for the DOCX writer ([phase 5](phases/phase-5-docx.md)). The version is
+pinned exactly, so a restore cannot silently pick up a release whose AOT behaviour has not been
+measured here.
 
 Also allowed, because they ship with the runtime: `System.IO.Compression`,
 `System.Xml.XmlWriter`, `System.Text.Json` — this is what the ODT writer
@@ -74,37 +76,47 @@ surfacing as a runtime crash in a published binary.
    `InvariantGlobalization` safe for the CLI.
 4. **No `System.Text.Json` source-generator-less serialization** — currently no JSON at all.
 
-### Known AOT risk when phase 5 arrives: DocumentFormat.OpenXml
+### Measured AOT behaviour of DocumentFormat.OpenXml (phase 5)
 
-The planned `DocumentFormat.OpenXml` dependency is **not** annotated as trim/AOT-safe. It uses
-reflection internally for schema and element metadata, and referencing it from a project marked
-`IsAotCompatible` raises `IL2xxx`/`IL3xxx` warnings that `TreatWarningsAsErrors` would turn into
-build failures.
+`DocumentFormat.OpenXml` is **not** annotated as trim/AOT-safe and uses reflection internally for
+schema and element metadata, so the risk was that referencing it from a project marked
+`IsAotCompatible` raises `IL2xxx`/`IL3xxx` warnings that `TreatWarningsAsErrors` turns into build
+failures.
 
-**Mitigation (the reason `IDocumentWriter` exists):**
+**What was actually measured** with `3.5.1` on .NET 9 (Linux, `linux-x64`):
 
-- All OpenXml usage is confined to `Writers/DocxDocumentWriter.cs` and its helpers. No OpenXml
+| Question | Result |
+| --- | --- |
+| `IL2xxx`/`IL3xxx` warnings building Core with `IsAotCompatible` | **None** for the APIs this writer uses (part creation, strongly typed elements, `CreateUnknownElement`). Other OpenXml APIs were not probed. |
+| Warnings on `dotnet publish /p:PublishAot=true` of the CLI | **None.** |
+| Does `--format docx` work in the native binary? | **Yes** — `build/verify` renders `samples/kitchen-sink.md` to `.docx` with the native binary and byte-compares it with the managed render. |
+
+So **no suppressions were needed at all**, and neither the scoped `NoWarn` nor the separate
+`MarkdownDotNetRenderer.OpenXml` assembly fallback was used. If a future OpenXml version does
+raise `IL` warnings, the order of remedies is unchanged: narrow, commented suppression at the
+DOCX writer file/member level first, then the separate-assembly split — never a solution-wide
+`NoWarn`.
+
+**Containment that still applies regardless:**
+
+- All OpenXml usage is confined to `src/MarkdownDotNetRenderer.Core/Writers/Docx/*`. No OpenXml
   type appears in any public API signature — the public surface exchanges
-  `DocumentContent`/`Stream` only.
+  `DocumentContent`/`Stream`/`RenderOptions` only, and the writer is reached through
+  `IDocumentWriter`.
+- The SVG blip extension Word needs is built by parsing an XML string into an
+  `OpenXmlUnknownElement` (`OpenXmlPartContainer.CreateUnknownElement`), not by reflection over
+  the drawing schema.
 - The HTML **and ODT** paths must remain fully AOT-clean, and this is verified, not assumed:
   `build/verify` publishes the CLI with `PublishAot` and runs the produced native binary
   end-to-end on an HTML render and an ODT render. That step is the definition of "AOT-clean", and
   because it lives in the script it runs identically on a dev box and in CI.
-- Trim/AOT warnings originating from OpenXml are suppressed **narrowly**, at the DOCX writer
-  file/member level (targeted `#pragma warning disable` or a scoped `NoWarn`), never
-  solution-wide, and each suppression carries a comment explaining it.
-- If suppression proves too invasive, the fallback plan (decided at phase 5 time, recorded
-  there) is to move the DOCX writer into a separate
-  `MarkdownDotNetRenderer.OpenXml` package that Core does not reference, with the CLI
-  registering it. That preserves an AOT-perfect HTML+ODT deployment at the cost of one more
-  assembly — and because ODT ships first, such a deployment is already a complete product rather
-  than a degraded one.
-- The DOCX branch is documented as **not guaranteed to work under `PublishAot`** until proven
-  by test. A CLI invoked with `--format docx` on an AOT build that fails must produce a clear
-  error, not a crash.
+- The DOCX branch is exercised under `PublishAot` by the gate rather than assumed to work. Should
+  a future runtime/package combination break it, `build/verify` fails on the DOCX step while the
+  HTML and ODT smoke runs stay exactly as strict as they are today.
 
-The ODT writer has no such problem (hand-written XML + `ZipArchive`), which is why it is the
-primary "office document" path for AOT builds — and why it ships first.
+The ODT writer still has no OpenXml dependency at all (hand-written XML + `ZipArchive`), so it
+remains the cheapest office path — but DOCX is no longer the AOT liability this section
+anticipated.
 
 ## Cross-platform requirement
 
@@ -145,8 +157,10 @@ Verification targets to record per phase, **on Linux**: the produced `.html` mus
 Firefox/Chromium; the produced `.odt` ([phase 2](phases/phase-2-odf-output.md)) must open in
 LibreOffice Writer with correct text structure **and visible vector diagrams**; and the produced
 `.docx` ([phase 5](phases/phase-5-docx.md)) must open in LibreOffice Writer with correct text
-structure — accepting that its SVG-only diagrams may not display there until the
-[PNG fallback](phases/phase-6-docx-png-fallback.md) lands, which is much of why ODT comes first.
+structure. Measured in phase 5: LibreOffice Writer 7.3 **does** import and display the SVG-only
+diagrams (see [phase 5](phases/phase-5-docx.md) for the evidence), so the
+[PNG fallback](phases/phase-6-docx-png-fallback.md) is about older Word versions and other
+consumers, not about LibreOffice.
 
 ## Size and performance expectations
 

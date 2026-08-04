@@ -7,7 +7,7 @@ format-agnostic `DocumentContent` (prose blocks, diagram blocks, fallback code b
 | --- | --- | --- | --- | --- |
 | `HtmlDocumentWriter` | Self-contained HTML5 | `.html` | Markdig only | [1](phases/phase-1-html-flowchart.md) — implemented |
 | `OdtDocumentWriter` | OpenDocument Text (LibreOffice/OpenOffice; also opens in Word 2010+) | `.odt` | none (hand-written XML + zip) | [2](phases/phase-2-odf-output.md) — implemented |
-| `DocxDocumentWriter` | OOXML WordprocessingML | `.docx` | DocumentFormat.OpenXml | [5](phases/phase-5-docx.md) |
+| `DocxDocumentWriter` | OOXML WordprocessingML | `.docx` | DocumentFormat.OpenXml | [5](phases/phase-5-docx.md) — implemented |
 
 ODT is implemented before DOCX because it needs no dependency and is AOT-clean; DOCX follows
 because Word renders a natively-written `.docx` exactly as authored, where it treats `.odt` as a
@@ -169,9 +169,24 @@ The cache is keyed by property set, so the second pass adds nothing and the name
 
 ## DocxDocumentWriter
 
-Built on **DocumentFormat.OpenXml** (MIT). The writer creates a
-`WordprocessingDocument` over the destination stream, adds a `MainDocumentPart`, and appends
-`Body` children per block.
+Built on **DocumentFormat.OpenXml** (MIT). The writer creates a `WordprocessingDocument`, adds a
+`MainDocumentPart`, appends `Body` children per block, and closes the body with a
+`SectionProperties` (Letter, 1-inch margins). Its files mirror the ODT decomposition:
+
+| File | Role |
+| --- | --- |
+| `OoxmlNames` | OOXML-mandated literals: content types, the SVG extension URI and namespace, the EMU factor |
+| `DocxUnits` | Pixel/inch → EMU, twip, half-point and eighth-point conversions, all `InvariantCulture` |
+| `DocxTheme` | Fonts, sizes, colours, indents, page geometry |
+| `DocxStyles` | `StyleDefinitionsPart` and `NumberingDefinitionsPart` |
+| `DocxDrawing` | The inline `Drawing`/`pic:pic`/blip tree, including the SVG blip extension |
+| `DocxImages` | Local image resolution and intrinsic size sniffing (PNG/JPEG/GIF/BMP/SVG), with no image-decoding dependency |
+| `DocxPackageWriter` | Copies the finished package out with fixed zip entry timestamps |
+| `DocxDocumentWriter` | The `IDocumentWriter` itself: the AST → OOXML visitor |
+
+The package is assembled in a `MemoryStream` and then copied to the caller's stream, because
+OpenXml takes ownership of the stream it is handed while `IDocumentWriter` promises to leave the
+destination open.
 
 ### Markdown → WordprocessingML mapping
 
@@ -190,8 +205,17 @@ Built on **DocumentFormat.OpenXml** (MIT). The writer creates a
 | Image (`![]()`) | `Drawing` with an `ImagePart` when the target is a readable local file; otherwise alt text plus `WRITER001` |
 | Raw HTML block/inline | Plain text of the raw content plus `WRITER001` |
 
+| Any other unmapped construct (maths, abbreviations, footnote references, …) | Readable plain text plus `WRITER001` |
+
 A `StyleDefinitionsPart` is generated once with the heading, normal, code, and quote styles so
-the document looks reasonable and remains restyleable in Word.
+the document looks reasonable and remains restyleable in Word. `RenderOptions.FontFamily` feeds
+the document defaults — only its first family, since `w:rFonts` names a single font rather than a
+CSS stack.
+
+`WRITER001` reaches `RenderResult.Diagnostics` through `IDiagnosticReportingWriter`
+([03-core-api](03-core-api.md)): `IDocumentWriter.WriteAsync` has no diagnostic sink, so the
+renderer reads the diagnostics of the write it just awaited off the writer instead of the seam
+growing a writer-specific parameter. Degrading a construct never throws.
 
 ### SVG-only diagram embedding
 
@@ -215,9 +239,14 @@ Word 2016+ (and Microsoft 365) supports native SVG images. The OOXML pieces invo
 Note the structural quirk: in Microsoft's design, `a:blip/@r:embed` normally points at the
 **raster** fallback and `asvg:svgBlip/@r:embed` at the SVG. With SVG-only embedding there is
 no raster part, so `a:blip/@r:embed` also points at the SVG part (`rId7`). Newer Word reads
-the `svgBlip` and renders crisp vector output. **Older Word, WordPad, Google Docs, and
-LibreOffice may show a placeholder or nothing for these images** — that is the accepted
-tradeoff of SVG-only, and the reason the raster fallback phase exists.
+the `svgBlip` and renders crisp vector output. **Older Word, WordPad and Google Docs may show a
+placeholder or nothing for these images** — that is the accepted tradeoff of SVG-only, and the
+reason the raster fallback phase exists. LibreOffice Writer 7.3 turned out to import and display
+them correctly (measured in [phase 5](phases/phase-5-docx.md)).
+
+`DocxDrawing.BuildInlineImage` takes the primary image relationship and the SVG relationship as
+separate arguments; SVG-only passes the same id twice, so [phase 6](phases/phase-6-docx-png-fallback.md)
+adds a raster part by passing a different first id and changes nothing else.
 
 Because DocumentFormat.OpenXml has no strongly-typed `asvg:svgBlip`, this element is added as
 an `OpenXmlUnknownElement` built from an XML string — deliberate, and it is *string
@@ -235,14 +264,27 @@ relationship can be slotted in later without restructuring.
 
 ### Determinism
 
-Core properties (`created`/`modified`) are set to a fixed timestamp (or one supplied via
-options) and `docPr` ids are assigned from a per-document counter, so identical input
-produces byte-identical packages apart from zip metadata — which keeps structural tests and
-golden-file comparisons viable ([07-testing-strategy](07-testing-strategy.md)).
+Identical input produces a **byte-identical package**, which keeps structural tests and
+golden-file comparisons viable ([07-testing-strategy](07-testing-strategy.md)). Four sources of
+noise had to be pinned:
+
+- Core properties `created`/`modified` are a fixed timestamp. They are written as a typed
+  `CoreFilePropertiesPart` rather than through `PackageProperties`, which would name that part
+  after a fresh GUID.
+- Relationship ids are assigned by the writer (`rId1`, `rId2`, then one per image/hyperlink in
+  document order); OpenXml would otherwise mint a GUID per relationship.
+- `wp:docPr` ids come from a per-document counter starting at 1, and ordered-list numbering
+  instance ids from another.
+- Zip entry timestamps are rewritten to the same fixed timestamp when the package is copied to
+  the destination (`DocxPackageWriter`), since the packaging layer stamps them with the wall
+  clock.
+
+`build/verify` byte-compares the managed and native-AOT renders of the same sample, so a
+regression here fails the gate.
 
 ## Choosing a writer
 
-`MarkdownRenderer` maps `RenderOptions.Format` to a writer with a plain `switch`; a format whose
-writer has not shipped yet throws `NotSupportedException` naming the format. The mapping
-also drives the CLI's `--format` values and its default output extension when `--output` is
-omitted.
+`MarkdownRenderer` maps `RenderOptions.Format` to a writer with a plain `switch`; an unknown
+format throws `ArgumentOutOfRangeException`. The mapping also drives the CLI's `--format` values
+and its default output extension when `--output` is omitted, which comes from the selected
+writer's `FileExtension`.

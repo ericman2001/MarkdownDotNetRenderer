@@ -136,10 +136,13 @@ dependency — Core and Cli stay dependency-free and AOT-clean). The grammars ar
 "recover" crash) are rendered and validated, closing the gap between "well-formed" and
 "conformant" so non-conformant output fails a test instead of only surfacing in Word.
 
-### 9. `DocxDocumentWriter` (phase 5)
+### 9. `DocxDocumentWriter` (phase 5 — implemented)
+
+In `DocxDocumentWriterTests`.
 
 - The package opens with `WordprocessingDocument.Open` without validation errors, and
-  `OpenXmlValidator` (2019 target) reports zero errors for the kitchen-sink sample.
+  `OpenXmlValidator` reports zero errors for every sample under `samples/`, not just the
+  kitchen sink.
 - Structural XML: heading paragraphs carry the right `ParagraphStyleId`; a GFM table becomes a
   `Table` with the right row/cell counts and a header row; list items carry
   `NumberingProperties` with the right `ilvl`; bold/italic runs carry the right
@@ -149,7 +152,12 @@ dependency — Core and Cli stay dependency-free and AOT-clean). The grammars ar
   `{96DAC541-…}` extension with `asvg:svgBlip` is present and its `r:embed` resolves to that
   image part.
 - Fallback code blocks appear as monospaced content, and the original mermaid text is present.
-- Determinism: two renders of the same input produce identical `document.xml`.
+- Degradation reports itself: raw HTML and an unresolvable image render as readable text and each
+  add a `WRITER001` diagnostic to `RenderResult`, without throwing.
+- Determinism: two renders of the same input produce an identical `document.xml` **and identical
+  package bytes** (the stricter of the two, since it also covers relationship ids, core
+  properties, and zip entry metadata). `build/verify` additionally byte-compares the managed
+  render against the native-AOT one.
 
 ### 9b. `SequenceRenderer` (phase 3)
 

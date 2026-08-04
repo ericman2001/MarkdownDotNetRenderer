@@ -131,10 +131,13 @@ can hash or re-use the bytes without re-reading the file.
 | `MERMAID004` | Warning | Diagram exceeded a layout guard (node/edge count, cycle depth) | Raw mermaid emitted as a code block |
 | `WRITER001` | Warning | Markdown construct unsupported by the writer (e.g. raw inline HTML in ODT/DOCX) | Construct rendered as plain text |
 
-`WRITER001` is reserved, not yet raised: diagnostics are collected in `MarkdownRenderer` while it
-builds `DocumentContent`, and `IDocumentWriter.WriteAsync` returns a bare `Task` with nowhere to
-report to. The ODT writer therefore degrades to plain text silently. Giving writers a diagnostic
-sink is part of phase 5, where DOCX needs it for unresolvable images.
+`WRITER001` is raised by the DOCX writer ([phase 5](phases/phase-5-docx.md)) for raw HTML,
+unresolvable images, and any construct it cannot express. `IDocumentWriter.WriteAsync` still
+returns a bare `Task` with no sink parameter; instead a writer that degrades constructs also
+implements `IDiagnosticReportingWriter`, and `MarkdownRenderer` appends
+`Diagnostics` of the write it just awaited to the `RenderResult`. Each call replaces the previous
+call's list, so a writer instance is not safe to share across concurrent renders. The ODT writer
+does not implement it and still degrades silently.
 
 ## Error-handling contract
 
@@ -154,7 +157,7 @@ large graphs — becomes a `RenderDiagnostic` plus a graceful degradation:
   definition, so no information is lost.
 - **Malformed source in a supported type** → same fallback, with `MERMAID002`.
 - **Unsupported Markdown construct in an office format** (raw HTML blocks, footnote layouts we do not
-  map) → best-effort plain-text rendering; `WRITER001` once writers can report diagnostics.
+  map) → best-effort plain-text rendering with `WRITER001` (DOCX; ODT degrades silently).
 
 The CLI surfaces diagnostics on stderr and exits `0` when only warnings occurred, so
 warnings never break a build; a `--strict` switch upgrades any warning to exit code `2`.
@@ -191,15 +194,21 @@ public interface IDocumentWriter
         RenderOptions options,
         CancellationToken cancellationToken = default);
 }
+
+/// <summary>Implemented by a writer that reports what it had to degrade (WRITER001).</summary>
+public interface IDiagnosticReportingWriter
+{
+    /// <summary>Diagnostics of the most recent WriteAsync call, in document order.</summary>
+    IReadOnlyList<RenderDiagnostic> Diagnostics { get; }
+}
 ```
 
 Writers write to a caller-supplied `Stream`, which lets `RenderAsync` target a
 `MemoryStream` and `RenderFileAsync` target a `FileStream` without buffering twice. See
-[05-output-writers](05-output-writers.md) for the implementations. Selecting a format whose
-writer has not shipped yet (`Odt` before [phase 2](phases/phase-2-odf-output.md), `Docx` before
-[phase 5](phases/phase-5-docx.md)) throws
-`NotSupportedException` with a message naming the format — an API-misuse error, distinct from the
-content-degradation cases below.
+[05-output-writers](05-output-writers.md) for the implementations. All three formats ship, so a
+format value outside the enum is the only selection error left; it throws
+`ArgumentOutOfRangeException` — an API-misuse error, distinct from the content-degradation cases
+below.
 
 All paths are handled with `Path`/`Path.Combine` and no assumption of a case-insensitive file
 system, so the API behaves identically on Linux, macOS, and Windows.

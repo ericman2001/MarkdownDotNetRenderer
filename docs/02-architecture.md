@@ -97,7 +97,7 @@ src/
       IDocumentWriter.cs
       HtmlDocumentWriter.cs
       Odt/                       // phase 2
-      DocxDocumentWriter.cs      // phase 5
+      Docx/                      // phase 5
   MarkdownDotNetRenderer.Cli/
     MarkdownDotNetRenderer.Cli.csproj
     Program.cs
