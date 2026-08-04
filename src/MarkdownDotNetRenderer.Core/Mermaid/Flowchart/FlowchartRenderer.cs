@@ -16,6 +16,7 @@
 
 using System.Globalization;
 using System.Text;
+using MarkdownDotNetRenderer.Mermaid.Graph;
 using MarkdownDotNetRenderer.Svg;
 
 namespace MarkdownDotNetRenderer.Mermaid.Flowchart;
@@ -85,7 +86,7 @@ public sealed class FlowchartRenderer : IDiagramRenderer
         }
 
         FlowchartModel model = parsed.Model;
-        double fontSize = options.DiagramFontSize <= 0 ? 12 : options.DiagramFontSize;
+        double fontSize = DiagramDefaults.ResolveFontSize(options);
         Dictionary<string, NodeSize> sizes = MeasureNodes(model, fontSize, _theme);
 
         LayoutResult layout = LayeredLayout.Compute(model, sizes, _metrics);
@@ -235,24 +236,7 @@ public sealed class FlowchartRenderer : IDiagramRenderer
         var svg = new SvgBuilder();
 
         double height = layout.Height;
-        double renderWidth = width;
-        double renderHeight = height;
-        if (options.MaxDiagramWidth > 0 && width > options.MaxDiagramWidth)
-        {
-            // Keep the viewBox intrinsic and clamp the presented size, so the consumer scales the
-            // diagram down instead of clipping it.
-            renderWidth = options.MaxDiagramWidth;
-            renderHeight = height * (options.MaxDiagramWidth / width);
-        }
-
-        svg.StartElement("svg")
-            .Attribute("xmlns", SvgBuilder.SvgNamespace)
-            .Attribute("width", renderWidth)
-            .Attribute("height", renderHeight)
-            .Attribute("viewBox", $"0 0 {SvgBuilder.Number(width)} {SvgBuilder.Number(height)}")
-            .Attribute("role", "img")
-            .Attribute("aria-label", altText)
-            .Attribute("class", "mdnr-flowchart");
+        DiagramSvg.StartRoot(svg, width, height, options, altText, "mdnr-flowchart");
 
         EmitDefs(svg, arrowId);
 
@@ -389,28 +373,7 @@ public sealed class FlowchartRenderer : IDiagramRenderer
         string fill)
     {
         IReadOnlyList<string> lines = TextMetrics.WrapLabel(label, _theme.LabelWrapChars);
-        double lineHeight = TextMetrics.LineHeight(fontSize);
-
-        svg.StartElement("text")
-            .Attribute("x", centerX)
-            .Attribute("y", centerY)
-            .Attribute("text-anchor", "middle")
-            .Attribute("dominant-baseline", "middle")
-            .Attribute("font-family", options.FontFamily)
-            .Attribute("font-size", fontSize)
-            .Attribute("fill", fill);
-
-        for (int i = 0; i < lines.Count; i++)
-        {
-            double dy = i == 0 ? -(lines.Count - 1) * lineHeight / 2 : lineHeight;
-            svg.StartElement("tspan")
-                .Attribute("x", centerX)
-                .Attribute("dy", dy)
-                .Text(lines[i])
-                .EndElement();
-        }
-
-        svg.EndElement();
+        SvgText.EmitCentered(svg, lines, centerX, centerY, "middle", options, fontSize, fill);
     }
 
     private void EmitEdge(
