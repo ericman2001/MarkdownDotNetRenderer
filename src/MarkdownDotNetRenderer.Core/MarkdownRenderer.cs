@@ -55,10 +55,9 @@ public sealed class MarkdownRenderer : IMarkdownRenderer
     /// <returns>The extension, e.g. <c>.html</c>.</returns>
     public static string GetFileExtension(OutputFormat format) => format switch
     {
-        OutputFormat.Html => ".html",
-        OutputFormat.Odt => ".odt",
+        // DOCX has a defined extension even though its writer is not shipped yet.
         OutputFormat.Docx => ".docx",
-        _ => throw new ArgumentOutOfRangeException(nameof(format), format, "Unknown output format."),
+        _ => CreateWriter(format).FileExtension,
     };
 
     /// <summary>

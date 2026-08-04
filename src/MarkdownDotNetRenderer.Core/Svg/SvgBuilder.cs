@@ -147,18 +147,6 @@ public sealed class SvgBuilder
         return rounded.ToString("0.##", CultureInfo.InvariantCulture);
     }
 
-    /// <summary>Escapes a value for use in XML text or an attribute.</summary>
-    /// <param name="value">The raw value.</param>
-    /// <returns>The escaped value.</returns>
-    public static string Escape(string value)
-    {
-        ArgumentNullException.ThrowIfNull(value);
-
-        var builder = new StringBuilder(value.Length);
-        AppendEscaped(builder, value, forAttribute: true);
-        return builder.ToString();
-    }
-
     /// <summary>Returns the emitted SVG markup.</summary>
     /// <returns>The markup written so far.</returns>
     public override string ToString()

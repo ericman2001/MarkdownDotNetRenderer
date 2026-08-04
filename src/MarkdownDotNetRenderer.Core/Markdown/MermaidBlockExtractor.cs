@@ -72,7 +72,7 @@ public static class MermaidBlockExtractor
     /// <summary>Reads a leaf block's raw lines as text with <c>\n</c> endings.</summary>
     /// <param name="block">The leaf block, e.g. a fenced code block.</param>
     /// <returns>The verbatim content.</returns>
-    public static string GetText(LeafBlock block)
+    internal static string GetText(LeafBlock block)
     {
         ArgumentNullException.ThrowIfNull(block);
 
