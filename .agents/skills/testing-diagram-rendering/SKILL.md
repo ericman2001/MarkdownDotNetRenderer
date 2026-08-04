@@ -55,6 +55,28 @@ that glyph is occluded. Confirm in the browser by nudging the line's `x1/x2` in 
 glyph pops into view. A browser check is required because the ODT/PDF render may disagree; current
 LibreOffice checks preserve the phase-4 `||` bars and `crit` styling.
 
+Beware false positives: a white label rect may overlap the tail 13.5 units of an **undirected**
+(`---`) link, which has no `marker-end` at all, or sit beside an arrowhead that still paints on top.
+Before reporting occlusion, confirm the edge actually has `marker-end` and zoom into the pixels in
+Chrome (`ctrl+equal` ×4) — the geometry dump alone over-reports.
+
+## Behaviour-preserving refactors: diff against the base branch
+
+The strongest check for a "no behaviour change" PR is a byte-for-byte comparison, and this renderer
+is fully deterministic (even `meta.xml` carries no timestamp), so it works:
+
+```bash
+git worktree add /home/ubuntu/mdr-main main      # never disturb the branch checkout
+(cd /home/ubuntu/mdr-main && build/verify.sh)    # builds a second native binary
+# render every sample with both binaries, then:
+cmp -s out/branch/x.html out/main/x.html                       # HTML: expect identical
+# ODT is a zip; compare extracted entries, not the archive bytes:
+(cd b && unzip -qo ../out/branch/x.odt); (cd m && unzip -qo ../out/main/x.odt); diff -r b m
+```
+
+Any difference at all is a finding. If a future change adds a timestamp to `meta.xml`, exclude just
+that entry rather than abandoning the technique.
+
 ## Coordinates inside `mdnr-*` groups are pre-shift
 
 Geometry emitted inside the diagram groups is in the layout's own space; the renderer wraps the
