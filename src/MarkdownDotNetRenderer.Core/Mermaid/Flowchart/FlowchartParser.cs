@@ -77,9 +77,7 @@ public static class FlowchartParser
 
             if (line.StartsWith("%%{", StringComparison.Ordinal))
             {
-                Report(diagnostics, reported, "directive",
-                    "A mermaid directive (%%{ … }%%) was ignored; the diagram is rendered with " +
-                    "the built-in theme.");
+                Report(diagnostics, reported, "directive", MermaidLines.DirectiveIgnored);
                 inDirective = !line.Contains("}%%", StringComparison.Ordinal);
                 continue;
             }
@@ -540,6 +538,7 @@ public static class FlowchartParser
 
     private static string StripComment(string line)
     {
+        // Flowchart labels can contain %% inside brackets, unlike the shared line helper.
         if (line.TrimStart().StartsWith("%%{", StringComparison.Ordinal))
         {
             return line;
