@@ -125,6 +125,17 @@ row; emphasis maps to `text:span` with the expected automatic style properties; 
 fragment; fallback code blocks preserve the verbatim mermaid source; and two renders of the same
 input are byte-identical.
 
+**Schema validity, not just well-formedness** (`OdtSchemaValidationTests`): each XML part is
+validated against the official OASIS OpenDocument v1.3 RelaxNG grammar — `content.xml`,
+`styles.xml`, and `meta.xml` against `OpenDocument-v1.3-schema.rng`, and `META-INF/manifest.xml`
+against `OpenDocument-v1.3-manifest-schema.rng`. RelaxNG validation is not in the BCL, so the test
+uses Mono's managed `Commons.Xml.Relaxng` validator (the `RelaxNG` NuGet package, a test-only
+dependency — Core and Cli stay dependency-free and AOT-clean). The grammars are committed under
+`tests/MarkdownDotNetRenderer.Tests/Schemas/` and copied next to the test binary. Both
+`samples/kitchen-sink.md` and the repository's own `README.md` (the file that reproduced the Word
+"recover" crash) are rendered and validated, closing the gap between "well-formed" and
+"conformant" so non-conformant output fails a test instead of only surfacing in Word.
+
 ### 9. `DocxDocumentWriter` (phase 5)
 
 - The package opens with `WordprocessingDocument.Open` without validation errors, and

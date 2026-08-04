@@ -5,14 +5,26 @@
     <!-- Test types/methods are public by xUnit convention but are not a public API surface,
          so they do not carry XML doc comments. Keep GenerateDocumentationFile (inherited from
          Directory.Build.props) from turning CS1591 into an error here. -->
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <!-- The OASIS ODF RelaxNG validator (Mono's Commons.Xml.Relaxng) only ships net20/net40
+         assemblies. It uses nothing beyond System.Xml, so it loads and runs on .NET 9; suppress
+         the "restored for a different framework" warning that TreatWarningsAsErrors would fail on.
+         This is a test-only dependency; the Core and Cli projects stay dependency-free and
+         AOT-clean. -->
+    <NoWarn>$(NoWarn);CS1591;NU1701</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.2" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="RelaxNG" Version="3.2.3" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Official OASIS OpenDocument v1.3 RelaxNG grammars, copied next to the test binary so the
+         schema-validation tests can compile them at run time. -->
+    <None Include="Schemas\**\*.rng" CopyToOutputDirectory="PreserveNewest" LinkBase="Schemas" />
   </ItemGroup>
 
   <ItemGroup>

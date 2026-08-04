@@ -122,6 +122,13 @@ All XML is written with `XmlWriter` using explicit namespace prefixes (`office`,
       `application/vnd.oasis.opendocument.text`.
 - [x] `META-INF/manifest.xml` lists every entry actually present, with correct media types, and
       all XML parts are well-formed.
+- [x] **Schema-valid, not just well-formed:** every XML part is validated in the test suite
+      against the official OASIS OpenDocument v1.3 RelaxNG grammar — `content.xml`, `styles.xml`,
+      and `meta.xml` against `OpenDocument-v1.3-schema.rng`, and `META-INF/manifest.xml` against
+      `OpenDocument-v1.3-manifest-schema.rng`. This is checked for both `samples/kitchen-sink.md`
+      **and the repository's own `README.md`** (the file that reproduced the Word "recover" crash).
+      *(Both render to output that validates clean against the ODF 1.3 grammar — see "Observed
+      application behaviour" below.)*
 - [x] Unsupported diagram types fall back to a readable code block with the same diagnostics as
       the HTML and DOCX paths; nothing throws.
 - [x] **No new NuGet dependency** was added, and the ODT path publishes and runs under
@@ -155,3 +162,19 @@ pdftoppm -r 80 -png out/out.pdf page                       # then inspect the pa
 A successful conversion is a meaningful signal: LibreOffice's PDF export runs the same importer
 and layout engine as the interactive open, so a package it would refuse to load, or an image it
 could not decode, shows up here.
+
+### Schema conformance (automated)
+
+The `OdtSchemaValidationTests` suite now validates each XML part against the official OASIS
+OpenDocument v1.3 RelaxNG grammar (see [07-testing-strategy](../07-testing-strategy.md) area 8).
+As of this change, **both `samples/kitchen-sink.md` and the repository `README.md` render to ODT
+whose `content.xml`, `styles.xml`, `meta.xml`, and `META-INF/manifest.xml` all validate clean
+against the ODF 1.3 grammar** — no element-ordering, attribute, table header-row, or covered-cell
+violations were found, so no writer fix was required to reach grammar conformance.
+
+RelaxNG conformance is necessary but not sufficient for every consumer: the grammar constrains
+element/attribute structure, not the full set of application-level invariants a strict importer
+(e.g. Microsoft Word's ODF converter) may enforce. If a Word "recover"-then-crash is still
+observed on a conformant package, the cause lies outside what the ODF 1.3 grammar expresses and
+would need to be reproduced against Word (or the Apache ODF Toolkit `odfvalidator`, which layers
+extra semantic checks on top of the grammar) to be pinned down.
