@@ -48,9 +48,6 @@ public sealed class OdtDocumentWriter : IDocumentWriter
     /// <summary>Fixed creation/modification timestamp, so two renders agree byte for byte.</summary>
     private const string FixedTimestamp = "2026-01-01T00:00:00";
 
-    /// <summary>Title used when <see cref="RenderOptions.DocumentTitle"/> is unset and no H1 exists.</summary>
-    private const string DefaultTitle = "Document";
-
     /// <summary>Sequential name template for the <c>draw:frame</c> of a diagram.</summary>
     private const string FrameNameFormat = "diagram{0}";
 
@@ -124,7 +121,7 @@ public sealed class OdtDocumentWriter : IDocumentWriter
         package.AddPart(
             OdfNames.MetaEntry,
             OdfNames.XmlMediaType,
-            BuildMetaPart(ResolveTitle(content, options)));
+            BuildMetaPart(DocumentTitle.Resolve(content, options)));
 
         foreach (Picture picture in pictures)
         {
@@ -797,65 +794,6 @@ public sealed class OdtDocumentWriter : IDocumentWriter
             format.Bold, format.Italic, format.Strikethrough, format.Code));
         writeContent();
         context.Writer.WriteEndElement();
-    }
-
-    private static string ResolveTitle(DocumentContent content, RenderOptions options)
-    {
-        if (!string.IsNullOrWhiteSpace(options.DocumentTitle))
-        {
-            return options.DocumentTitle;
-        }
-
-        foreach (DocumentBlock block in content.Blocks)
-        {
-            if (block is not ProseBlock prose)
-            {
-                continue;
-            }
-
-            foreach (Block node in prose.Nodes)
-            {
-                if (node is HeadingBlock { Level: 1 } heading)
-                {
-                    string text = ExtractText(heading.Inline);
-                    if (!string.IsNullOrWhiteSpace(text))
-                    {
-                        return text;
-                    }
-                }
-            }
-        }
-
-        return DefaultTitle;
-    }
-
-    private static string ExtractText(ContainerInline? container)
-    {
-        if (container is null)
-        {
-            return string.Empty;
-        }
-
-        var text = new StringBuilder();
-        foreach (Inline inline in container)
-        {
-            switch (inline)
-            {
-                case LiteralInline literal:
-                    text.Append(literal.Content.AsSpan());
-                    break;
-                case CodeInline code:
-                    text.Append(code.Content);
-                    break;
-                case ContainerInline nested:
-                    text.Append(ExtractText(nested));
-                    break;
-                default:
-                    break;
-            }
-        }
-
-        return text.ToString();
     }
 
     private static IReadOnlyList<string> ReadLines(StringLineGroup lines)
