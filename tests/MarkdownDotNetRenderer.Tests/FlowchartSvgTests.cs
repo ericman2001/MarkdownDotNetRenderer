@@ -25,16 +25,12 @@ namespace MarkdownDotNetRenderer.Tests;
 /// <summary>Area 3 and area 5 of docs/07-testing-strategy.md: SVG emission.</summary>
 public sealed class FlowchartSvgTests
 {
-    private static readonly XNamespace Svg = "http://www.w3.org/2000/svg";
-
     private static XElement RenderSvg(string source, RenderOptions? options = null)
     {
         DiagramRenderResult result = new FlowchartRenderer().Render(
             source, options ?? RenderOptions.Html);
 
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        Assert.NotNull(result.SvgFragment);
-        return XElement.Parse(result.SvgFragment);
+        return DiagramTestHelpers.RenderSvg(result);
     }
 
     [Theory]
@@ -47,7 +43,7 @@ public sealed class FlowchartSvgTests
     {
         XElement svg = RenderSvg(source);
 
-        Assert.Equal(Svg + "svg", svg.Name);
+        Assert.Equal(DiagramTestHelpers.Svg + "svg", svg.Name);
     }
 
     [Fact]
@@ -78,7 +74,7 @@ public sealed class FlowchartSvgTests
 
         XElement svg = XElement.Parse(result.SvgFragment!);
         Assert.Contains(
-            svg.Descendants(Svg + "tspan"),
+            svg.Descendants(DiagramTestHelpers.Svg + "tspan"),
             span => span.Value.Contains("a & b <c>", StringComparison.Ordinal));
     }
 
@@ -92,15 +88,15 @@ public sealed class FlowchartSvgTests
                 C --> D{Rhombus}
             """);
 
-        List<XElement> nodes = svg.Descendants(Svg + "g")
+        List<XElement> nodes = svg.Descendants(DiagramTestHelpers.Svg + "g")
             .Where(g => g.Attribute("class")?.Value == "mdnr-node")
             .ToList();
 
         Assert.Equal(4, nodes.Count);
         Assert.Equal(["A", "B", "C", "D"], nodes.Select(n => n.Attribute("data-id")!.Value));
-        Assert.Equal(3, nodes.Count(n => n.Element(Svg + "rect") is not null));
-        Assert.Single(nodes, n => n.Element(Svg + "polygon") is not null);
-        Assert.All(nodes, node => Assert.NotNull(node.Element(Svg + "text")));
+        Assert.Equal(3, nodes.Count(n => n.Element(DiagramTestHelpers.Svg + "rect") is not null));
+        Assert.Single(nodes, n => n.Element(DiagramTestHelpers.Svg + "polygon") is not null);
+        Assert.All(nodes, node => Assert.NotNull(node.Element(DiagramTestHelpers.Svg + "text")));
     }
 
     [Fact]
@@ -108,12 +104,12 @@ public sealed class FlowchartSvgTests
     {
         XElement svg = RenderSvg("flowchart TD\n    A --> B\n    B --- C\n");
 
-        List<XElement> edges = svg.Descendants(Svg + "g")
+        List<XElement> edges = svg.Descendants(DiagramTestHelpers.Svg + "g")
             .Where(g => g.Attribute("class")?.Value == "mdnr-edge")
             .ToList();
 
         Assert.Equal(2, edges.Count);
-        XElement marker = Assert.Single(svg.Descendants(Svg + "marker"));
+        XElement marker = Assert.Single(svg.Descendants(DiagramTestHelpers.Svg + "marker"));
         string markerId = marker.Attribute("id")!.Value;
 
         XElement directed = edges[0].Elements().Single();
@@ -126,24 +122,24 @@ public sealed class FlowchartSvgTests
     {
         XElement svg = RenderSvg("flowchart TD\n    A -->|yes| B\n");
 
-        XElement label = svg.Descendants(Svg + "g")
+        XElement label = svg.Descendants(DiagramTestHelpers.Svg + "g")
             .Single(g => g.Attribute("class")?.Value == "mdnr-edge-label");
 
-        Assert.NotNull(label.Element(Svg + "rect"));
-        Assert.Equal("yes", label.Element(Svg + "text")?.Value);
+        Assert.NotNull(label.Element(DiagramTestHelpers.Svg + "rect"));
+        Assert.Equal("yes", label.Element(DiagramTestHelpers.Svg + "text")?.Value);
     }
 
     [Fact]
     public void Edge_Endpoints_Are_Clipped_To_The_Node_Boundary()
     {
         XElement svg = RenderSvg("flowchart TD\n    A[Source] --> B[Target]\n");
-        XElement line = Assert.Single(svg.Descendants(Svg + "line"));
+        XElement line = Assert.Single(svg.Descendants(DiagramTestHelpers.Svg + "line"));
 
         double y1 = double.Parse(line.Attribute("y1")!.Value, CultureInfo.InvariantCulture);
         double y2 = double.Parse(line.Attribute("y2")!.Value, CultureInfo.InvariantCulture);
-        XElement sourceRect = svg.Descendants(Svg + "g")
+        XElement sourceRect = svg.Descendants(DiagramTestHelpers.Svg + "g")
             .Single(g => g.Attribute("data-id")?.Value == "A")
-            .Element(Svg + "rect")!;
+            .Element(DiagramTestHelpers.Svg + "rect")!;
         double sourceBottom =
             double.Parse(sourceRect.Attribute("y")!.Value, CultureInfo.InvariantCulture) +
             double.Parse(sourceRect.Attribute("height")!.Value, CultureInfo.InvariantCulture);
@@ -160,11 +156,11 @@ public sealed class FlowchartSvgTests
         string again = renderer.Render("flowchart TD\n    A --> B\n", RenderOptions.Html).SvgFragment!;
         string other = renderer.Render("flowchart LR\n    A --> C\n", RenderOptions.Html).SvgFragment!;
 
-        string firstId = XElement.Parse(first).Descendants(Svg + "marker")
+        string firstId = XElement.Parse(first).Descendants(DiagramTestHelpers.Svg + "marker")
             .Single().Attribute("id")!.Value;
-        string againId = XElement.Parse(again).Descendants(Svg + "marker")
+        string againId = XElement.Parse(again).Descendants(DiagramTestHelpers.Svg + "marker")
             .Single().Attribute("id")!.Value;
-        string otherId = XElement.Parse(other).Descendants(Svg + "marker")
+        string otherId = XElement.Parse(other).Descendants(DiagramTestHelpers.Svg + "marker")
             .Single().Attribute("id")!.Value;
 
         Assert.Equal(firstId, againId);
@@ -230,11 +226,11 @@ public sealed class FlowchartSvgTests
         double canvasWidth = double.Parse(viewBox[2], CultureInfo.InvariantCulture);
         double canvasHeight = double.Parse(viewBox[3], CultureInfo.InvariantCulture);
 
-        XElement loop = svg.Descendants(Svg + "g")
+        XElement loop = svg.Descendants(DiagramTestHelpers.Svg + "g")
             .Single(g => g.Attribute("class")?.Value == "mdnr-edge" &&
                          g.Attribute("data-source")?.Value == "A" &&
                          g.Attribute("data-target")?.Value == "A")
-            .Element(Svg + "path")!;
+            .Element(DiagramTestHelpers.Svg + "path")!;
 
         foreach ((double x, double y) in PathPoints(loop.Attribute("d")!.Value))
         {
@@ -242,11 +238,11 @@ public sealed class FlowchartSvgTests
             Assert.InRange(y, 0, canvasHeight);
         }
 
-        XElement labelBox = svg.Descendants(Svg + "g")
+        XElement labelBox = svg.Descendants(DiagramTestHelpers.Svg + "g")
             .Single(g => g.Attribute("class")?.Value == "mdnr-edge-label" &&
                          g.Attribute("data-source")?.Value == "A" &&
                          g.Attribute("data-target")?.Value == "A")
-            .Element(Svg + "rect")!;
+            .Element(DiagramTestHelpers.Svg + "rect")!;
         double left = double.Parse(
             labelBox.Attribute("x")!.Value, CultureInfo.InvariantCulture);
         double boxWidth = double.Parse(
@@ -278,7 +274,7 @@ public sealed class FlowchartSvgTests
             "flowchart TD\n    A[Label] --> B\n", new RenderOptions { FontFamily = "Iosevka" });
 
         Assert.All(
-            svg.Descendants(Svg + "text"),
+            svg.Descendants(DiagramTestHelpers.Svg + "text"),
             text => Assert.Equal("Iosevka", text.Attribute("font-family")?.Value));
     }
 
@@ -288,10 +284,10 @@ public sealed class FlowchartSvgTests
         XElement svg = RenderSvg(
             "flowchart TD\n    A[A very long label that certainly needs wrapping] --> B\n");
 
-        XElement label = svg.Descendants(Svg + "g")
+        XElement label = svg.Descendants(DiagramTestHelpers.Svg + "g")
             .Single(g => g.Attribute("data-id")?.Value == "A")
-            .Element(Svg + "text")!;
+            .Element(DiagramTestHelpers.Svg + "text")!;
 
-        Assert.True(label.Elements(Svg + "tspan").Count() > 1);
+        Assert.True(label.Elements(DiagramTestHelpers.Svg + "tspan").Count() > 1);
     }
 }

@@ -26,8 +26,6 @@ namespace MarkdownDotNetRenderer.Tests;
 /// </summary>
 public sealed class PieDiagramTests
 {
-    private static readonly XNamespace Svg = "http://www.w3.org/2000/svg";
-
     private const string Simple = """
         pie showData
             title Coverage
@@ -39,9 +37,7 @@ public sealed class PieDiagramTests
     {
         DiagramRenderResult result = new PieRenderer().Render(source, RenderOptions.Html);
 
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        Assert.NotNull(result.SvgFragment);
-        return XElement.Parse(result.SvgFragment);
+        return DiagramTestHelpers.RenderSvg(result);
     }
 
     [Fact]
@@ -135,17 +131,17 @@ public sealed class PieDiagramTests
     {
         XElement svg = RenderSvg(Simple);
 
-        List<XElement> slices = svg.Descendants(Svg + "g")
+        List<XElement> slices = svg.Descendants(DiagramTestHelpers.Svg + "g")
             .Where(group => group.Attribute("class")?.Value == "mdnr-pie-slice")
             .ToList();
         Assert.Equal(2, slices.Count);
-        Assert.All(slices, slice => Assert.NotNull(slice.Element(Svg + "path")));
+        Assert.All(slices, slice => Assert.NotNull(slice.Element(DiagramTestHelpers.Svg + "path")));
 
-        string text = string.Join('\n', svg.Descendants(Svg + "text").Select(t => t.Value));
+        string text = string.Join('\n', svg.Descendants(DiagramTestHelpers.Svg + "text").Select(t => t.Value));
         Assert.Contains("Coverage", text, StringComparison.Ordinal);
         Assert.Contains("Covered — 75 (75%)", text, StringComparison.Ordinal);
         Assert.Contains("Missed — 25 (25%)", text, StringComparison.Ordinal);
-        Assert.Equal(2, svg.Descendants(Svg + "rect").Count());
+        Assert.Equal(2, svg.Descendants(DiagramTestHelpers.Svg + "rect").Count());
     }
 
     [Fact]
@@ -153,8 +149,8 @@ public sealed class PieDiagramTests
     {
         XElement svg = RenderSvg("pie\n    \"Only\" : 5\n");
 
-        Assert.Single(svg.Descendants(Svg + "circle"));
-        Assert.Empty(svg.Descendants(Svg + "path"));
+        Assert.Single(svg.Descendants(DiagramTestHelpers.Svg + "circle"));
+        Assert.Empty(svg.Descendants(DiagramTestHelpers.Svg + "path"));
     }
 
     [Fact]
@@ -186,7 +182,7 @@ public sealed class PieDiagramTests
     {
         XElement svg = RenderSvg(Simple);
 
-        Assert.Equal(Svg + "svg", svg.Name);
+        Assert.Equal(DiagramTestHelpers.Svg + "svg", svg.Name);
         Assert.Equal("img", svg.Attribute("role")?.Value);
         Assert.Equal("mdnr-pie", svg.Attribute("class")?.Value);
         Assert.Contains("pie chart", svg.Attribute("aria-label")!.Value, StringComparison.Ordinal);

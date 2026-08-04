@@ -27,8 +27,6 @@ namespace MarkdownDotNetRenderer.Tests;
 /// </summary>
 public sealed class StateDiagramTests
 {
-    private static readonly XNamespace Svg = "http://www.w3.org/2000/svg";
-
     private const string Simple = """
         stateDiagram-v2
             state "Waiting" as Idle
@@ -44,9 +42,7 @@ public sealed class StateDiagramTests
     {
         DiagramRenderResult result = Render(source);
 
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        Assert.NotNull(result.SvgFragment);
-        return XElement.Parse(result.SvgFragment);
+        return DiagramTestHelpers.RenderSvg(result);
     }
 
     [Theory]
@@ -129,7 +125,7 @@ public sealed class StateDiagramTests
     {
         XElement svg = RenderSvg(Simple);
 
-        List<XElement> states = svg.Descendants(Svg + "g")
+        List<XElement> states = svg.Descendants(DiagramTestHelpers.Svg + "g")
             .Where(group => group.Attribute("class")?.Value.StartsWith(
                 "mdnr-state-node", StringComparison.Ordinal) == true)
             .ToList();
@@ -139,15 +135,15 @@ public sealed class StateDiagramTests
                 .OrderBy(id => id, StringComparer.Ordinal));
 
         // Pseudo-states are circles; ordinary states are stadium-shaped rectangles.
-        Assert.Equal(2, svg.Descendants(Svg + "rect").Count(IsStadium));
-        Assert.Equal(3, svg.Descendants(Svg + "circle").Count());
+        Assert.Equal(2, svg.Descendants(DiagramTestHelpers.Svg + "rect").Count(IsStadium));
+        Assert.Equal(3, svg.Descendants(DiagramTestHelpers.Svg + "circle").Count());
         Assert.Equal(
             3,
-            svg.Descendants(Svg + "g")
+            svg.Descendants(DiagramTestHelpers.Svg + "g")
                 .Count(group => group.Attribute("class")?.Value == "mdnr-edge"));
         Assert.Contains(
             "work arrives",
-            svg.Descendants(Svg + "text").Select(text => text.Value),
+            svg.Descendants(DiagramTestHelpers.Svg + "text").Select(text => text.Value),
             StringComparer.Ordinal);
 
         static bool IsStadium(XElement rect) =>
@@ -162,10 +158,10 @@ public sealed class StateDiagramTests
         XElement svg = RenderSvg(Simple + "\n    note right of Busy : slow\n");
 
         Assert.Contains(
-            svg.Descendants(Svg + "rect"),
+            svg.Descendants(DiagramTestHelpers.Svg + "rect"),
             rect => rect.Attribute("stroke-dasharray") is not null);
         Assert.Contains(
-            "slow", svg.Descendants(Svg + "text").Select(text => text.Value), StringComparer.Ordinal);
+            "slow", svg.Descendants(DiagramTestHelpers.Svg + "text").Select(text => text.Value), StringComparer.Ordinal);
     }
 
     [Fact]
@@ -218,17 +214,17 @@ public sealed class StateDiagramTests
             """);
 
         XElement label = svg
-            .Descendants(Svg + "g")
+            .Descendants(DiagramTestHelpers.Svg + "g")
             .Single(group => group.Attribute("class")?.Value == "mdnr-edge-label")
-            .Element(Svg + "rect")!;
+            .Element(DiagramTestHelpers.Svg + "rect")!;
         double labelLeft = Number(label, "x");
         double labelRight = labelLeft + Number(label, "width");
 
         foreach (XElement box in svg
-            .Descendants(Svg + "g")
+            .Descendants(DiagramTestHelpers.Svg + "g")
             .Where(group => group.Attribute("class")?.Value.StartsWith(
                 "mdnr-state-node", StringComparison.Ordinal) == true)
-            .Elements(Svg + "rect"))
+            .Elements(DiagramTestHelpers.Svg + "rect"))
         {
             double boxLeft = Number(box, "x");
             double boxRight = boxLeft + Number(box, "width");
@@ -250,9 +246,9 @@ public sealed class StateDiagramTests
         Assert.True(result.Success);
         XElement svg = XElement.Parse(result.SvgFragment!);
         XElement label = svg
-            .Descendants(Svg + "g")
+            .Descendants(DiagramTestHelpers.Svg + "g")
             .Single(group => group.Attribute("class")?.Value == "mdnr-edge-label")
-            .Element(Svg + "rect")!;
+            .Element(DiagramTestHelpers.Svg + "rect")!;
 
         Assert.True(Number(label, "x") >= 0);
         Assert.True(Number(label, "x") + Number(label, "width") <= result.Width);
@@ -270,9 +266,9 @@ public sealed class StateDiagramTests
             """);
 
         List<(double Left, double Right)> labels = svg
-            .Descendants(Svg + "g")
+            .Descendants(DiagramTestHelpers.Svg + "g")
             .Where(group => group.Attribute("class")?.Value == "mdnr-edge-label")
-            .Elements(Svg + "rect")
+            .Elements(DiagramTestHelpers.Svg + "rect")
             .Select(rect => (Number(rect, "x"), Number(rect, "x") + Number(rect, "width")))
             .ToList();
 
@@ -282,17 +278,12 @@ public sealed class StateDiagramTests
             $"labels {labels[0]} and {labels[1]} overlap");
 
         XElement node = svg
-            .Descendants(Svg + "g")
+            .Descendants(DiagramTestHelpers.Svg + "g")
             .Single(group => group.Attribute("data-id")?.Value == "Idle")
-            .Element(Svg + "rect")!;
+            .Element(DiagramTestHelpers.Svg + "rect")!;
         double nodeRight = Number(node, "x") + Number(node, "width");
         Assert.All(labels, label => Assert.True(label.Left >= nodeRight));
     }
-
-    private static double Number(XElement element, string name) =>
-        double.Parse(
-            element.Attribute(name)!.Value,
-            System.Globalization.CultureInfo.InvariantCulture);
 
     [Fact]
     public void Repeated_Renders_Are_Byte_Identical()

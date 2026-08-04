@@ -27,14 +27,6 @@ namespace MarkdownDotNetRenderer.Tests;
 /// </summary>
 public sealed class Phase4DocumentTests
 {
-    private static readonly XNamespace Draw =
-        "urn:oasis:names:tc:opendocument:xmlns:drawing:1.0";
-
-    private static readonly XNamespace Office =
-        "urn:oasis:names:tc:opendocument:xmlns:office:1.0";
-
-    private static readonly XNamespace Xlink = "http://www.w3.org/1999/xlink";
-
     private const int DiagramCount = 5;
 
     private static Task<string> SampleAsync() =>

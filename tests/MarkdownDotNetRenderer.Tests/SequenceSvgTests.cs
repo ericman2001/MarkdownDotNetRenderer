@@ -27,8 +27,6 @@ namespace MarkdownDotNetRenderer.Tests;
 /// </summary>
 public sealed class SequenceSvgTests
 {
-    private static readonly XNamespace Svg = "http://www.w3.org/2000/svg";
-
     private static string Fragment(string source, RenderOptions? options = null)
     {
         DiagramRenderResult result = new SequenceRenderer().Render(
@@ -40,10 +38,10 @@ public sealed class SequenceSvgTests
     }
 
     private static XElement RenderSvg(string source, RenderOptions? options = null) =>
-        XElement.Parse(Fragment(source, options));
+        DiagramTestHelpers.ParseSvg(Fragment(source, options));
 
     private static IEnumerable<XElement> Groups(XElement svg, string className) =>
-        svg.Descendants(Svg + "g").Where(g => g.Attribute("class")?.Value == className);
+        svg.Descendants(DiagramTestHelpers.Svg + "g").Where(g => g.Attribute("class")?.Value == className);
 
     [Theory]
     [InlineData("sequenceDiagram\n    A->>B: hi\n")]
@@ -54,7 +52,7 @@ public sealed class SequenceSvgTests
     {
         XElement svg = RenderSvg(source);
 
-        Assert.Equal(Svg + "svg", svg.Name);
+        Assert.Equal(DiagramTestHelpers.Svg + "svg", svg.Name);
     }
 
     [Fact]
@@ -88,12 +86,12 @@ public sealed class SequenceSvgTests
         Assert.Equal(["A", "B"], actors.Select(actor => actor.Attribute("data-id")!.Value));
         Assert.All(actors, actor =>
         {
-            Assert.NotNull(actor.Element(Svg + "rect"));
-            Assert.NotNull(actor.Element(Svg + "text"));
+            Assert.NotNull(actor.Element(DiagramTestHelpers.Svg + "rect"));
+            Assert.NotNull(actor.Element(DiagramTestHelpers.Svg + "text"));
         });
-        Assert.Equal(["Alice", "Bob"], actors.Select(actor => actor.Element(Svg + "text")!.Value));
+        Assert.Equal(["Alice", "Bob"], actors.Select(actor => actor.Element(DiagramTestHelpers.Svg + "text")!.Value));
 
-        List<XElement> lifelines = svg.Descendants(Svg + "line")
+        List<XElement> lifelines = svg.Descendants(DiagramTestHelpers.Svg + "line")
             .Where(line => line.Attribute("class")?.Value == "mdnr-lifeline")
             .ToList();
         Assert.Equal(["A", "B"], lifelines.Select(line => line.Attribute("data-id")!.Value));
@@ -110,15 +108,15 @@ public sealed class SequenceSvgTests
                 A->>A: three
             """);
 
-        List<XElement> messages = svg.Descendants(Svg + "g")
+        List<XElement> messages = svg.Descendants(DiagramTestHelpers.Svg + "g")
             .Where(g => g.Attribute("data-source") is not null)
             .ToList();
 
         Assert.Equal(3, messages.Count);
         Assert.Equal(["A", "B", "A"], messages.Select(m => m.Attribute("data-source")!.Value));
         Assert.Equal(["B", "A", "A"], messages.Select(m => m.Attribute("data-target")!.Value));
-        Assert.Equal(2, messages.Count(m => m.Element(Svg + "line") is not null));
-        Assert.Single(messages, m => m.Element(Svg + "path") is not null);
+        Assert.Equal(2, messages.Count(m => m.Element(DiagramTestHelpers.Svg + "line") is not null));
+        Assert.Single(messages, m => m.Element(DiagramTestHelpers.Svg + "path") is not null);
     }
 
     [Fact]
@@ -126,7 +124,7 @@ public sealed class SequenceSvgTests
     {
         XElement svg = RenderSvg("sequenceDiagram\n    A->>B: solid\n    B-->>A: dashed\n");
 
-        List<XElement> lines = svg.Descendants(Svg + "line")
+        List<XElement> lines = svg.Descendants(DiagramTestHelpers.Svg + "line")
             .Where(line => line.Attribute("class")?.Value != "mdnr-lifeline")
             .ToList();
 
@@ -145,13 +143,13 @@ public sealed class SequenceSvgTests
                 A-)B: async
             """);
 
-        List<string> markerIds = svg.Descendants(Svg + "marker")
+        List<string> markerIds = svg.Descendants(DiagramTestHelpers.Svg + "marker")
             .Select(marker => marker.Attribute("id")!.Value)
             .ToList();
         Assert.Equal(4, markerIds.Count);
         Assert.Equal(markerIds.Count, markerIds.Distinct(StringComparer.Ordinal).Count());
 
-        List<string> used = svg.Descendants(Svg + "line")
+        List<string> used = svg.Descendants(DiagramTestHelpers.Svg + "line")
             .Where(line => line.Attribute("marker-end") is not null)
             .Select(line => line.Attribute("marker-end")!.Value)
             .ToList();
@@ -168,9 +166,9 @@ public sealed class SequenceSvgTests
         string second = Fragment("sequenceDiagram\n    A->>B: two\n");
 
         string firstId = XElement.Parse(first)
-            .Descendants(Svg + "marker").First().Attribute("id")!.Value;
+            .Descendants(DiagramTestHelpers.Svg + "marker").First().Attribute("id")!.Value;
         string secondId = XElement.Parse(second)
-            .Descendants(Svg + "marker").First().Attribute("id")!.Value;
+            .Descendants(DiagramTestHelpers.Svg + "marker").First().Attribute("id")!.Value;
 
         Assert.NotEqual(firstId, secondId);
     }
@@ -187,8 +185,8 @@ public sealed class SequenceSvgTests
 
         XElement note = Assert.Single(Groups(svg, "mdnr-note"));
         Assert.Equal("A,B", note.Attribute("data-actors")!.Value);
-        Assert.NotNull(note.Element(Svg + "rect"));
-        Assert.Equal("shared context", note.Element(Svg + "text")!.Value);
+        Assert.NotNull(note.Element(DiagramTestHelpers.Svg + "rect"));
+        Assert.Equal("shared context", note.Element(DiagramTestHelpers.Svg + "text")!.Value);
     }
 
     [Fact]
@@ -197,7 +195,7 @@ public sealed class SequenceSvgTests
         XElement svg = RenderSvg("sequenceDiagram\n    autonumber\n    A->>B: hello\n");
 
         Assert.Contains(
-            svg.Descendants(Svg + "tspan"),
+            svg.Descendants(DiagramTestHelpers.Svg + "tspan"),
             span => span.Value == "1. hello");
     }
 
@@ -209,7 +207,7 @@ public sealed class SequenceSvgTests
         Assert.DoesNotContain("<c>", fragment, StringComparison.Ordinal);
         Assert.Contains("&amp;", fragment, StringComparison.Ordinal);
         Assert.Contains(
-            XElement.Parse(fragment).Descendants(Svg + "tspan"),
+            XElement.Parse(fragment).Descendants(DiagramTestHelpers.Svg + "tspan"),
             span => span.Value.Contains("a & b <c>", StringComparison.Ordinal));
     }
 
