@@ -1,6 +1,6 @@
 ---
 name: testing-diagram-rendering
-description: How to build, render and visually verify mdrender's mermaid diagram output (HTML inline SVG and ODT pictures) end to end.
+description: How to build, render and visually verify mdrender's mermaid diagram output (HTML inline SVG, ODT and DOCX pictures) end to end.
 ---
 
 # Testing MarkdownDotNetRenderer diagram output
@@ -15,6 +15,7 @@ build/verify.sh                       # authoritative gate; also AOT-publishes t
 BIN=artifacts/publish/linux-x64/mdrender      # prefer the native binary, it is what verify.sh smoke-tests
 $BIN --input samples/diagram-gallery.md --output /tmp/gallery.html --format html
 $BIN --input samples/diagram-gallery.md --output /tmp/gallery.odt --format odt
+$BIN --input samples/diagram-gallery.md --output /tmp/gallery.docx --format docx
 ```
 
 `dotnet run --project src/MarkdownDotNetRenderer.Cli -c Release -- ...` works too but prints build
@@ -97,12 +98,78 @@ libreoffice --headless --convert-to pdf /tmp/gallery.odt   # then open the PDF i
 ```
 Diagrams must appear as pictures, not empty frames.
 
+## Checking the DOCX
+
+A headless docx→odt/pdf conversion is **not** sufficient evidence that a Word document renders: it
+exercises LibreOffice's import filter but not its picture rendering path. Open the file in the GUI:
+
+```bash
+soffice --writer /tmp/gallery.docx &
+sleep 4
+wmctrl -r "gallery.docx - LibreOffice Writer" -b add,maximized_vert,maximized_horz
+```
+
+`wmctrl` matches on the exact window title, which is `<basename> - LibreOffice Writer`. Never use
+`xdotool key super+Up` to maximize — it half-tiles. The first GUI launch may show a "Tip of the day"
+and a default-format dialog; dismiss both before screenshotting.
+
+What to confirm visually, in this order:
+
+1. **No repair/recovery prompt.** Any "the file is corrupt / Word document needs repair" dialog is a
+   packaging bug, not a cosmetic one.
+2. **Diagrams are pictures**, not blank frames, grey placeholders, red X boxes, or squashed aspect
+   ratios. Mermaid diagrams ship as `image/svg+xml` parts referenced by `a:blip` plus an
+   `asvg:svgBlip` extension (GUID `{96DAC541-7B7A-43D3-8B79-37D633B846F1}`). LibreOffice 7.3.7
+   honours this and renders them correctly.
+3. **Structure**: distinct heading sizes, nested list indents, task-list `☒`/`☐`, GFM table bold
+   header + per-column alignment, shaded monospace code with leading spaces, block quote, rule.
+
+Cheap pre-checks before opening the GUI (fast triage if a picture is missing):
+
+```bash
+unzip -l out.docx | grep media/                       # one svg part per rendered diagram
+unzip -p out.docx word/document.xml | grep -c asvg:svgBlip     # must equal the diagram count
+unzip -p out.docx '\[Content_Types\].xml' | grep -o 'image/svg+xml'
+unzip -p out.docx word/_rels/document.xml.rels | tr '>' '>\n' | grep image
+```
+
+If `media/` has the right parts but the GUI shows empty frames, suspect the drawing extent (EMU
+conversion) or the `a:blip r:embed` id, not the image bytes.
+
+### Word compatibility is NOT covered by a LibreOffice check
+
+Microsoft Word is not installed on these boxes and cannot be tested. Note this explicitly as untested
+rather than implying DOCX is universally verified. Word normally expects `a:blip r:embed` to point at
+a **raster** fallback with the SVG only in the `asvg:svgBlip` extension; if the writer points
+`r:embed` straight at the SVG part, LibreOffice is fine but older Word builds may have no fallback.
+Flag this for a human with Word.
+
+### Determinism and strict mode are cheap extra signals
+
+```bash
+# render twice, compare — the writer is fully deterministic (fixed 2026-01-01 zip timestamps)
+md5sum /tmp/det1.docx /tmp/det2.docx        # must match
+mdrender -i samples/kitchen-sink.md -o /tmp/x.docx -f docx --strict; echo $?   # expect 2
+```
+
 ## Useful adversarial fixture
 
 Cover: pie with 8 slices and a very long title, state LR + TD with a self-loop and an alias declared
 after first use, class with generics `List~int~` plus `*--` / `o--` / self relation, ER with no
 attributes and a self relationship, one-day gantt, and an unsupported type (`quadrantChart`) to
 confirm the MERMAID001 code-block fallback.
+
+## Expected diagnostics from the stock samples
+
+Useful as a regression baseline — these are correct, not failures, and exit code stays 0:
+
+* `kitchen-sink.md`: MERMAID001 (mindmap unsupported), MERMAID002 (malformed flowchart),
+  MERMAID003 ×3 (`subgraph`, `classDef`, `click` ignored).
+* `sequence-demo.md`: MERMAID003 (`loop` not laid out).
+* `diagram-gallery.md`, `flowchart-demo.md`: silent.
+
+Fallback blocks must contain the **verbatim** mermaid source including original indentation; diff the
+rendered text against the sample's line range rather than eyeballing it.
 
 ## Devin Secrets Needed
 
