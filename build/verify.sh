@@ -35,6 +35,29 @@ fail() {
 }
 trap fail ERR
 
+# A DOCX must be a zip holding the WordprocessingML parts, with the diagram as an SVG image part.
+# Entry names live uncompressed in the zip directory, so they are greppable.
+check_docx() {
+  local package="$1"
+  local label="$2"
+
+  if [ ! -s "$package" ]; then
+    echo "$label DOCX render produced no output at $package" >&2
+    fail
+  fi
+  if [ "$(dd if="$package" bs=1 count=2 2>/dev/null)" != "PK" ]; then
+    echo "$label DOCX render is not a zip package." >&2
+    fail
+  fi
+  for needle in '[Content_Types].xml' 'word/document.xml' 'word/styles.xml' \
+    'word/numbering.xml' 'docProps/core.xml' 'media/image.svg'; do
+    if ! grep -qaF -- "$needle" "$package"; then
+      echo "$label DOCX render is missing the package entry: $needle" >&2
+      fail
+    fi
+  done
+}
+
 echo "==> Restore"
 dotnet restore "$SLN"
 
@@ -43,6 +66,16 @@ dotnet build "$SLN" -c "$CONFIG" --no-restore
 
 echo "==> Test ($CONFIG)"
 dotnet test "$SLN" -c "$CONFIG" --no-build --logger trx
+
+SMOKE_DIR="$(mktemp -d)"
+trap 'rm -rf "$SMOKE_DIR"' EXIT
+
+# The managed render of a DOCX: the OOXML package the AOT smoke run below also has to produce.
+echo "==> Render a sample to .docx (managed)"
+MANAGED_DOCX="$SMOKE_DIR/kitchen-sink.docx"
+dotnet run --project "$CLI_PROJECT" -c "$CONFIG" --no-build -- \
+  --input samples/kitchen-sink.md --output "$MANAGED_DOCX" --format docx
+check_docx "$MANAGED_DOCX" "Managed"
 
 if [ "$NO_AOT" -eq 1 ]; then
   echo "==> Skipping AOT publish and smoke run (--no-aot)"
@@ -70,8 +103,6 @@ fi
 echo "==> Smoke run of native binary"
 "$BINARY" --version >/dev/null
 
-SMOKE_DIR="$(mktemp -d)"
-trap 'rm -rf "$SMOKE_DIR"' EXIT
 SMOKE_HTML="$SMOKE_DIR/flowchart-demo.html"
 
 # A real render through the native binary: the AOT build must produce self-contained HTML with
@@ -204,22 +235,16 @@ if ! grep -qaF -- 'Pictures/diagram-5.svg' "$GALLERY_ODT"; then
   fail
 fi
 
-# Formats whose writers have not shipped must fail loudly rather than write a broken file.
-# A non-zero exit is the expectation here, so the ERR trap has to stand down for one command.
-trap - ERR
-set +e
-"$BINARY" --input samples/flowchart-demo.md --output "$SMOKE_DIR/out.docx" --format docx \
-  >/dev/null 2>"$SMOKE_DIR/docx.err"
-DOCX_STATUS=$?
-set -e
-trap fail ERR
-if [ "$DOCX_STATUS" -eq 0 ]; then
-  echo "--format docx must fail until its writer ships." >&2
-  fail
-fi
-if ! grep -qF 'not implemented' "$SMOKE_DIR/docx.err"; then
-  echo "--format docx must explain that the writer is not implemented yet." >&2
-  cat "$SMOKE_DIR/docx.err" >&2
+# DOCX under AOT: DocumentFormat.OpenXml is reflection-based, so the native binary is where a
+# trimmed-away member would surface. It has to produce the same package the managed run did
+# (docs/06-aot-and-dependencies.md).
+echo "==> Smoke run of native binary (docx)"
+NATIVE_DOCX="$SMOKE_DIR/kitchen-sink-aot.docx"
+"$BINARY" --input samples/kitchen-sink.md --output "$NATIVE_DOCX" --format docx
+check_docx "$NATIVE_DOCX" "Native"
+
+if ! cmp -s "$MANAGED_DOCX" "$NATIVE_DOCX"; then
+  echo "Native DOCX render differs from the managed one; the writer is not deterministic." >&2
   fail
 fi
 

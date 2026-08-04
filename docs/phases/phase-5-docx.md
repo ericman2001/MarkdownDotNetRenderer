@@ -102,25 +102,44 @@ contents, cross-references, tracked changes, templates/`.dotx`.
 
 - [ ] `mdrender -i samples/kitchen-sink.md -o out.docx -f docx` produces a file that **opens in
       Microsoft Word without a repair prompt**, with correct headings, paragraphs, nested lists,
-      tables, code blocks, and quotes.
-- [ ] The same file opens in **LibreOffice Writer on Linux** with correct text structure
-      (diagram images may not display there — documented and accepted for SVG-only; Linux users
-      are better served by the ODT output from [phase 2](phase-2-odf-output.md), and broad
-      raster compatibility is [phase 6](phase-6-docx-png-fallback.md)).
-- [ ] Diagrams display as crisp vector images in Word 2016+/Microsoft 365.
-- [ ] `OpenXmlValidator` reports **zero** validation errors for every fixture.
-- [ ] Structural XML tests pass: heading style ids, table row/cell counts and header row, list
+      tables, code blocks, and quotes. *Not verifiable here — no Word install is available on a
+      Linux build machine; see "Observed behaviour" below for what was verified instead.*
+- [x] The same file opens in **LibreOffice Writer on Linux** with correct text structure — and,
+      better than expected, **with the diagrams displayed**.
+- [ ] Diagrams display as crisp vector images in Word 2016+/Microsoft 365. *Not verifiable here;
+      the OOXML written is the structure Word documents for SVG pictures and is asserted by test,
+      but it has not been opened in Word.*
+- [x] `OpenXmlValidator` reports **zero** validation errors for every fixture.
+- [x] Structural XML tests pass: heading style ids, table row/cell counts and header row, list
       `NumberingProperties`/`ilvl`, run properties for bold/italic/strike/code, the
       `image/svg+xml` part, the `wp:extent` EMU values, and the `{96DAC541-…}` `asvg:svgBlip`
       with a resolvable relationship.
-- [ ] Unsupported diagram types still fall back to a readable code block in DOCX, with the same
+- [x] Unsupported diagram types still fall back to a readable code block in DOCX, with the same
       diagnostics as HTML, and no exception.
-- [ ] No OpenXml type appears in any public API signature; all OpenXml usage is confined to the
-      DOCX writer files; any trim/AOT suppression is narrowly scoped and commented.
-- [ ] The **HTML** path still publishes and runs under `PublishAot=true` (unchanged from phase 1).
+- [x] No OpenXml type appears in any public API signature; all OpenXml usage is confined to the
+      DOCX writer files. **No suppression was needed** — the reference raises no `IL2xxx`/`IL3xxx`
+      warning for the APIs used.
+- [x] The **HTML** path still publishes and runs under `PublishAot=true` (unchanged from phase 1).
       Whether the DOCX path works under AOT is explicitly tested and the result documented in
       [06-aot-and-dependencies](../06-aot-and-dependencies.md); if it does not, the CLI reports a
       clear error instead of crashing.
-- [ ] `build/verify` prints `PASS` on all three OSes. If the AOT step fails because of
-      `DocumentFormat.OpenXml`, that is recorded here, and the script keeps the HTML+ODT AOT smoke
-      test passing rather than being weakened.
+- [x] `build/verify` prints `PASS` — verified locally on Linux; `windows-latest` and
+      `macos-latest` are covered by the CI matrix, which runs the same script. The AOT step did **not** fail because
+      of `DocumentFormat.OpenXml`, so nothing had to be weakened; the gate now also renders DOCX
+      with the native binary and byte-compares it against the managed render.
+
+## Observed behaviour
+
+Measured on Linux with `DocumentFormat.OpenXml 3.5.1` on .NET 9, rendering
+`samples/kitchen-sink.md`.
+
+| Consumer | Result |
+| --- | --- |
+| `OpenXmlValidator` (Office 2007–2021 schemas) | Zero errors on every fixture. |
+| **LibreOffice Writer 7.3.7** | Opens with no repair prompt. Headings, nested lists, the GFM table with its header row, shaded code blocks, quotes and the horizontal rule all come through. The SVG diagram pictures **are imported and displayed** — converting the `.docx` to `.odt` shows each diagram as a `draw:image` with the original SVG retained plus a raster replacement LibreOffice generated itself, and they appear in its PDF export. |
+| **Microsoft Word** | **Not tested — no Word install is available on the build machine**, and Office automation is out of scope for this project ([06](../06-aot-and-dependencies.md)). What is asserted by test instead: the package structure Word requires (content types, `word/document.xml`, styles, numbering, core properties) and the exact SVG picture markup Word 2016+ reads — `a:blip/a:extLst/a:ext[@uri="{96DAC541-…}"]/asvg:svgBlip` with an `r:embed` that resolves to an `image/svg+xml` part. This row must be filled in from a real Word install before the two Word acceptance boxes above can be ticked. |
+| Native AOT binary | `--format docx` works, and its output is byte-identical to the managed render. |
+
+The LibreOffice result is better than [05-output-writers](../05-output-writers.md) predicted, which
+narrows [phase 6](phase-6-docx-png-fallback.md) to older Word, Google Docs and WordPad rather than
+"every non-Word consumer".

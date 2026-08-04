@@ -26,6 +26,34 @@ function Invoke-Checked {
     }
 }
 
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+# A DOCX must be a zip holding the WordprocessingML parts, with the diagram as an SVG image part.
+function Assert-Docx {
+    param(
+        [Parameter(Mandatory)][string]$Package,
+        [Parameter(Mandatory)][string]$Label
+    )
+
+    if (-not (Test-Path $Package) -or (Get-Item $Package).Length -eq 0) {
+        throw "$Label DOCX render produced no output at $Package"
+    }
+
+    $Archive = [System.IO.Compression.ZipFile]::OpenRead($Package)
+    try {
+        $Names = $Archive.Entries | ForEach-Object { $_.FullName }
+        foreach ($needle in @('[Content_Types].xml', 'word/document.xml', 'word/styles.xml',
+                'word/numbering.xml', 'docProps/core.xml', 'media/image.svg')) {
+            if ($Names -notcontains $needle) {
+                throw "$Label DOCX render is missing the package entry: $needle"
+            }
+        }
+    }
+    finally {
+        $Archive.Dispose()
+    }
+}
+
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $RepoRoot
 try {
@@ -42,8 +70,21 @@ try {
     Write-Host "==> Test ($Config)"
     Invoke-Checked { dotnet test $Sln -c $Config --no-build --logger trx }
 
+    $SmokeDir = Join-Path ([System.IO.Path]::GetTempPath()) ("mdnr-smoke-" + [guid]::NewGuid())
+    New-Item -ItemType Directory -Path $SmokeDir | Out-Null
+
+    # The managed render of a DOCX: the OOXML package the AOT smoke run below also has to produce.
+    Write-Host '==> Render a sample to .docx (managed)'
+    $ManagedDocx = Join-Path $SmokeDir 'kitchen-sink.docx'
+    Invoke-Checked {
+        dotnet run --project $CliProject -c $Config --no-build -- `
+            --input 'samples/kitchen-sink.md' --output $ManagedDocx --format docx
+    }
+    Assert-Docx -Package $ManagedDocx -Label 'Managed'
+
     if ($NoAot) {
         Write-Host '==> Skipping AOT publish and smoke run (-NoAot)'
+        Remove-Item -Recurse -Force $SmokeDir -ErrorAction SilentlyContinue
         Write-Host 'PASS'
         exit 0
     }
@@ -66,8 +107,6 @@ try {
     Write-Host '==> Smoke run of native binary'
     Invoke-Checked { & $Binary --version | Out-Null }
 
-    $SmokeDir = Join-Path ([System.IO.Path]::GetTempPath()) ("mdnr-smoke-" + [guid]::NewGuid())
-    New-Item -ItemType Directory -Path $SmokeDir | Out-Null
     try {
         # A real render through the native binary: the AOT build must produce self-contained HTML
         # with inline SVG, not just start up.
@@ -110,7 +149,6 @@ try {
             throw "Native ODT smoke render produced no output at $SmokeOdt"
         }
 
-        Add-Type -AssemblyName System.IO.Compression.FileSystem
         $Package = [System.IO.Compression.ZipFile]::OpenRead($SmokeOdt)
         try {
             $First = $Package.Entries[0]
@@ -213,14 +251,20 @@ try {
             $GalleryPackage.Dispose()
         }
 
-        # Formats whose writers have not shipped must fail loudly rather than write a broken file.
-        $DocxOut = Join-Path $SmokeDir 'out.docx'
-        $DocxErrors = & $Binary --input 'samples/flowchart-demo.md' --output $DocxOut --format docx 2>&1
-        if ($LASTEXITCODE -eq 0) {
-            throw '--format docx must fail until its writer ships.'
+        # DOCX under AOT: DocumentFormat.OpenXml is reflection-based, so the native binary is where
+        # a trimmed-away member would surface. It has to produce the same package the managed run
+        # did (docs/06-aot-and-dependencies.md).
+        Write-Host '==> Smoke run of native binary (docx)'
+        $NativeDocx = Join-Path $SmokeDir 'kitchen-sink-aot.docx'
+        Invoke-Checked {
+            & $Binary --input 'samples/kitchen-sink.md' --output $NativeDocx --format docx
         }
-        if (($DocxErrors -join "`n") -notmatch 'not implemented') {
-            throw '--format docx must explain that the writer is not implemented yet.'
+        Assert-Docx -Package $NativeDocx -Label 'Native'
+
+        $ManagedBytes = [System.IO.File]::ReadAllBytes($ManagedDocx)
+        $NativeBytes = [System.IO.File]::ReadAllBytes($NativeDocx)
+        if (-not [System.Linq.Enumerable]::SequenceEqual($ManagedBytes, $NativeBytes)) {
+            throw 'Native DOCX render differs from the managed one; the writer is not deterministic.'
         }
     }
     finally {

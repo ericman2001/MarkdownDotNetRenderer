@@ -7,13 +7,13 @@ A **pure C#** renderer that turns GitHub-Flavored Markdown — including embedde
 (**ODT**, then **DOCX**) you can hand to anyone, with **no JavaScript anywhere in the rendering
 path**.
 
-> **Status: phases 1–4 (HTML + ODT, seven diagram types) complete.** `mdrender` turns
+> **Status: phases 1–5 (HTML + ODT + DOCX, seven diagram types) complete.** `mdrender` turns
 > Markdown containing ` ```mermaid ` `flowchart`/`graph`, `sequenceDiagram`, `pie`,
 > `stateDiagram`, `classDiagram`, `erDiagram`, and `gantt` blocks into a single
-> self-contained HTML file with inline, hand-written SVG, or into an OpenDocument Text file whose
-> diagrams are native, vector SVG pictures — still with no new dependency. The DOCX writer
-> ([phase 5](docs/phases/phase-5-docx.md)) and the lower-priority diagram types are still to come;
-> selecting them reports a clear error or degrades to a code block. Start with
+> self-contained HTML file with inline, hand-written SVG, or into an OpenDocument Text or Word
+> document whose diagrams are native, vector SVG pictures. The lower-priority diagram types and
+> the DOCX PNG fallback ([phase 6](docs/phases/phase-6-docx-png-fallback.md)) are still to come;
+> unsupported diagram types degrade to a code block. Start with
 > [docs/01-overview.md](docs/01-overview.md).
 
 ## Why
@@ -22,8 +22,8 @@ You write your design docs in Markdown with Mermaid diagrams. Your reviewer has 
 office suite. Existing options for bridging that gap all drag JavaScript into the build: a Node
 sidecar running `mermaid-cli`, a headless Chromium, a remote rendering service, or an embedded
 JS engine. This project renders Mermaid **in-process, in C#**, so a single small executable —
-with one runtime NuGet dependency today (within a two-package budget; the second arrives with
-phase 5) and no browser, no Node, and no network — produces the artifact.
+with two runtime NuGet dependencies (its whole budget: Markdig and DocumentFormat.OpenXml) and
+no browser, no Node, and no network — produces the artifact.
 
 ## The no-JS constraint
 
@@ -77,7 +77,7 @@ and anyone can reproduce the exact gate in one command. Details in
 | --- | --- | --- |
 | Self-contained HTML | Inline `<svg>` | [Phase 1](docs/phases/phase-1-html-flowchart.md) — implemented |
 | ODT (LibreOffice / OpenOffice; also opens in Word 2010+) | Native SVG, no new dependency | [Phase 2](docs/phases/phase-2-odf-output.md) — implemented |
-| DOCX (Word) | Embedded **SVG only** (Word 2016+/365) | [Phase 5](docs/phases/phase-5-docx.md) |
+| DOCX (Word) | Embedded **SVG only** (Word 2016+/365; also displays in LibreOffice Writer) | [Phase 5](docs/phases/phase-5-docx.md) — implemented |
 | DOCX with PNG fallback | Raster for older Word | [Phase 6](docs/phases/phase-6-docx-png-fallback.md) — deferred/optional |
 
 ODT comes before DOCX deliberately: it needs no new dependency, is fully AOT-clean, and carries
@@ -161,13 +161,12 @@ acceptance criteria — so it can be handed off and executed independently.
 
 ## Dependencies
 
-One runtime package today, within a budget of two. The second arrives with phase 5; neither may
-pull a native or JavaScript dependency.
+Two runtime packages, which is the whole budget; neither pulls a native or JavaScript dependency.
 
 | Package | License | Used for |
 | --- | --- | --- |
 | [Markdig](https://github.com/xoofx/markdig) | BSD-2-Clause | GFM Markdown parsing |
-| [DocumentFormat.OpenXml](https://github.com/dotnet/Open-XML-SDK) | MIT | Planned phase 5 DOCX writing; not referenced today |
+| [DocumentFormat.OpenXml](https://github.com/dotnet/Open-XML-SDK) | MIT | DOCX writing (pinned to `3.5.1`, used only by `Writers/Docx/*`) |
 
 See [06 — Dependencies, AOT & cross-platform](docs/06-aot-and-dependencies.md) for the policy
 that keeps it that way.

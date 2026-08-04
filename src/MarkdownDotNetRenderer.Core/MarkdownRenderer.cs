@@ -18,6 +18,7 @@ using Markdig.Syntax;
 using MarkdownDotNetRenderer.Markdown;
 using MarkdownDotNetRenderer.Mermaid;
 using MarkdownDotNetRenderer.Writers;
+using MarkdownDotNetRenderer.Writers.Docx;
 using MarkdownDotNetRenderer.Writers.Odt;
 
 namespace MarkdownDotNetRenderer;
@@ -53,25 +54,17 @@ public sealed class MarkdownRenderer : IMarkdownRenderer
     /// <summary>The file extension a format's documents use, including the dot.</summary>
     /// <param name="format">The output format.</param>
     /// <returns>The extension, e.g. <c>.html</c>.</returns>
-    public static string GetFileExtension(OutputFormat format) => format switch
-    {
-        // DOCX has a defined extension even though its writer is not shipped yet.
-        OutputFormat.Docx => ".docx",
-        _ => CreateWriter(format).FileExtension,
-    };
+    public static string GetFileExtension(OutputFormat format) =>
+        CreateWriter(format).FileExtension;
 
-    /// <summary>
-    /// Selects the writer for a format. Formats whose writer has not shipped yet throw
-    /// <see cref="NotSupportedException"/> naming the phase that implements them.
-    /// </summary>
+    /// <summary>Selects the writer for a format.</summary>
     /// <param name="format">The output format.</param>
     /// <returns>The writer for that format.</returns>
     public static IDocumentWriter CreateWriter(OutputFormat format) => format switch
     {
         OutputFormat.Html => new HtmlDocumentWriter(MarkdownPipelineFactory.Default),
         OutputFormat.Odt => new OdtDocumentWriter(),
-        OutputFormat.Docx => throw new NotSupportedException(
-            "DOCX output is not implemented until phase 5; use --format html for now."),
+        OutputFormat.Docx => new DocxDocumentWriter(),
         _ => throw new ArgumentOutOfRangeException(nameof(format), format, "Unknown output format."),
     };
 
@@ -85,7 +78,7 @@ public sealed class MarkdownRenderer : IMarkdownRenderer
         ArgumentNullException.ThrowIfNull(options);
         cancellationToken.ThrowIfCancellationRequested();
 
-        // Selecting the writer first means an unsupported format fails before any output exists.
+        // Selecting the writer first means an unknown format fails before any output exists.
         IDocumentWriter writer = CreateWriter(options.Format);
 
         var diagnostics = new List<RenderDiagnostic>();
@@ -93,6 +86,12 @@ public sealed class MarkdownRenderer : IMarkdownRenderer
 
         using var buffer = new MemoryStream();
         await writer.WriteAsync(content, buffer, options, cancellationToken).ConfigureAwait(false);
+
+        // A writer that had to degrade a construct it cannot express reports it after the write.
+        if (writer is IDiagnosticReportingWriter reporting)
+        {
+            diagnostics.AddRange(reporting.Diagnostics);
+        }
 
         return new RenderResult
         {
@@ -113,7 +112,7 @@ public sealed class MarkdownRenderer : IMarkdownRenderer
         ArgumentNullException.ThrowIfNull(options);
         cancellationToken.ThrowIfCancellationRequested();
 
-        // Fail on an unshipped format before touching the file system.
+        // Fail on an unknown format before touching the file system.
         _ = CreateWriter(options.Format);
 
         string markdown = await File.ReadAllTextAsync(inputPath, cancellationToken)

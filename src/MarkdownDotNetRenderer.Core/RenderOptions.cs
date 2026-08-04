@@ -48,6 +48,6 @@ public sealed class RenderOptions
     /// <summary>Preset options producing an ODT package.</summary>
     public static RenderOptions Odt { get; } = new() { Format = OutputFormat.Odt };
 
-    /// <summary>Preset options producing a DOCX package. Writer arrives in phase 5.</summary>
+    /// <summary>Preset options producing a DOCX package.</summary>
     public static RenderOptions Docx { get; } = new() { Format = OutputFormat.Docx };
 }

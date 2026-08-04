@@ -66,3 +66,18 @@ public interface IDocumentWriter
         RenderOptions options,
         CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// Implemented by a writer that degrades constructs its format cannot express and wants to say so
+/// (<c>WRITER001</c>, docs/03-core-api.md). <see cref="IDocumentWriter.WriteAsync"/> returns a bare
+/// <see cref="Task"/> and takes no sink, so the caller reads the diagnostics of the write it just
+/// awaited from the writer instead — which keeps the seam free of writer-specific parameters.
+/// </summary>
+public interface IDiagnosticReportingWriter
+{
+    /// <summary>
+    /// Diagnostics raised by the most recent <see cref="IDocumentWriter.WriteAsync"/> call, in
+    /// document order. Each call replaces the previous call's diagnostics.
+    /// </summary>
+    IReadOnlyList<RenderDiagnostic> Diagnostics { get; }
+}
