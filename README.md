@@ -167,6 +167,7 @@ pull a native or JavaScript dependency.
 | Package | License | Used for |
 | --- | --- | --- |
 | [Markdig](https://github.com/xoofx/markdig) | BSD-2-Clause | GFM Markdown parsing |
+| [DocumentFormat.OpenXml](https://github.com/dotnet/Open-XML-SDK) | MIT | Planned phase 5 DOCX writing; not referenced today |
 
 See [06 — Dependencies, AOT & cross-platform](docs/06-aot-and-dependencies.md) for the policy
 that keeps it that way.

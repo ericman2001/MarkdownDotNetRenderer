@@ -49,10 +49,11 @@ public enum GraphMarker
 
 /// <summary>
 /// The shared line-end glyph library. Each glyph is drawn as ordinary geometry at the endpoint it
-/// belongs to, rotated to follow its line, rather than referenced through an SVG
-/// <c>&lt;marker&gt;</c>. This phase-4 approach keeps the glyph geometry self-contained and preserves
-/// the historical ER cardinality-bar workaround, while the phase-1/3 arrow markers are also
-/// preserved for consumers that support them (docs/04-mermaid-engine.md).
+/// belongs to, rotated to follow its line, so each fragment stays self-contained without
+/// per-document-unique <c>&lt;defs&gt;</c> to manage, and because this fixed the ER cardinality
+/// bars that were being lost. SVG <c>&lt;marker&gt;</c> elements used by the flowchart and sequence
+/// renderers also render correctly in LibreOffice's ODT path; this is not a general rasterizer
+/// limitation (docs/04-mermaid-engine.md).
 /// </summary>
 public static class GraphMarkers
 {

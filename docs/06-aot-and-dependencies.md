@@ -8,6 +8,7 @@ dependency.
 | Package | Used by | License | LGPLv3 compatible as a dependency? |
 | --- | --- | --- | --- |
 | [Markdig](https://www.nuget.org/packages/Markdig) | Core (all phases) | BSD-2-Clause | Yes — permissive, no reciprocal obligations |
+| [DocumentFormat.OpenXml](https://www.nuget.org/packages/DocumentFormat.OpenXml) | Planned phase 5 only; not referenced today | MIT | Yes — permissive |
 | xUnit (+ `xunit.runner.visualstudio`, `Microsoft.NET.Test.Sdk`) | Tests only | Apache-2.0 / MIT | Yes; test-only, never shipped |
 
 Core currently uses one runtime package, `Markdig`. The second package in the budget arrives with
@@ -75,9 +76,10 @@ surfacing as a runtime crash in a published binary.
 
 ### Known AOT risk when phase 5 arrives: DocumentFormat.OpenXml
 
-The planned `DocumentFormat.OpenXml` dependency is **not** annotated as trim/AOT-safe. It uses reflection internally
-for schema and element metadata, and referencing it from a project marked `IsAotCompatible`
-raises `IL2xxx`/`IL3xxx` warnings that `TreatWarningsAsErrors` would turn into build failures.
+The planned `DocumentFormat.OpenXml` dependency is **not** annotated as trim/AOT-safe. It uses
+reflection internally for schema and element metadata, and referencing it from a project marked
+`IsAotCompatible` raises `IL2xxx`/`IL3xxx` warnings that `TreatWarningsAsErrors` would turn into
+build failures.
 
 **Mitigation (the reason `IDocumentWriter` exists):**
 

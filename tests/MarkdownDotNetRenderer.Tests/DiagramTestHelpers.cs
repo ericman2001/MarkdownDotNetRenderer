@@ -14,6 +14,7 @@
 // with this library; see the file LICENSE.LESSER. If not, see
 // <https://www.gnu.org/licenses/>.
 
+using System.Globalization;
 using System.Xml.Linq;
 using MarkdownDotNetRenderer.Mermaid;
 
@@ -46,5 +47,5 @@ internal static class DiagramTestHelpers
     internal static double Number(XElement element, string name) =>
         double.Parse(
             element.Attribute(name)!.Value,
-            System.Globalization.CultureInfo.InvariantCulture);
+            CultureInfo.InvariantCulture);
 }

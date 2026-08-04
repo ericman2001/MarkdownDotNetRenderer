@@ -161,7 +161,9 @@ public sealed class StateDiagramTests
             svg.Descendants(DiagramTestHelpers.Svg + "rect"),
             rect => rect.Attribute("stroke-dasharray") is not null);
         Assert.Contains(
-            "slow", svg.Descendants(DiagramTestHelpers.Svg + "text").Select(text => text.Value), StringComparer.Ordinal);
+            "slow",
+            svg.Descendants(DiagramTestHelpers.Svg + "text").Select(text => text.Value),
+            StringComparer.Ordinal);
     }
 
     [Fact]

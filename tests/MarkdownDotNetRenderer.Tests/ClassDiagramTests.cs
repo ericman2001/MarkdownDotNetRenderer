@@ -189,7 +189,9 @@ public sealed class ClassDiagramTests
             Assert.Single(box.Elements(DiagramTestHelpers.Svg + "line"));
         }
 
-        string text = string.Join('\n', svg.Descendants(DiagramTestHelpers.Svg + "text").Select(t => t.Value));
+        string text = string.Join(
+            '\n',
+            svg.Descendants(DiagramTestHelpers.Svg + "text").Select(t => t.Value));
         foreach (string expected in
             new[] { "<<interface>>", "Animal", "+string name", "+speak()", "+fetch()" })
         {

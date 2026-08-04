@@ -38,10 +38,11 @@ public sealed class SequenceSvgTests
     }
 
     private static XElement RenderSvg(string source, RenderOptions? options = null) =>
-        DiagramTestHelpers.ParseSvg(Fragment(source, options));
+        ParseSvg(Fragment(source, options));
 
     private static IEnumerable<XElement> Groups(XElement svg, string className) =>
-        svg.Descendants(DiagramTestHelpers.Svg + "g").Where(g => g.Attribute("class")?.Value == className);
+        svg.Descendants(DiagramTestHelpers.Svg + "g")
+            .Where(g => g.Attribute("class")?.Value == className);
 
     [Theory]
     [InlineData("sequenceDiagram\n    A->>B: hi\n")]
@@ -89,7 +90,9 @@ public sealed class SequenceSvgTests
             Assert.NotNull(actor.Element(DiagramTestHelpers.Svg + "rect"));
             Assert.NotNull(actor.Element(DiagramTestHelpers.Svg + "text"));
         });
-        Assert.Equal(["Alice", "Bob"], actors.Select(actor => actor.Element(DiagramTestHelpers.Svg + "text")!.Value));
+        Assert.Equal(
+            ["Alice", "Bob"],
+            actors.Select(actor => actor.Element(DiagramTestHelpers.Svg + "text")!.Value));
 
         List<XElement> lifelines = svg.Descendants(DiagramTestHelpers.Svg + "line")
             .Where(line => line.Attribute("class")?.Value == "mdnr-lifeline")
@@ -115,7 +118,9 @@ public sealed class SequenceSvgTests
         Assert.Equal(3, messages.Count);
         Assert.Equal(["A", "B", "A"], messages.Select(m => m.Attribute("data-source")!.Value));
         Assert.Equal(["B", "A", "A"], messages.Select(m => m.Attribute("data-target")!.Value));
-        Assert.Equal(2, messages.Count(m => m.Element(DiagramTestHelpers.Svg + "line") is not null));
+        Assert.Equal(
+            2,
+            messages.Count(m => m.Element(DiagramTestHelpers.Svg + "line") is not null));
         Assert.Single(messages, m => m.Element(DiagramTestHelpers.Svg + "path") is not null);
     }
 

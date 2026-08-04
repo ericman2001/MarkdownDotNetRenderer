@@ -130,9 +130,13 @@ public sealed class ErDiagramTests
             .Where(group => group.Attribute("class")?.Value == "mdnr-entity")
             .ToList();
         Assert.Equal(["CUSTOMER", "ORDER"], entities.Select(e => e.Attribute("data-id")!.Value));
-        Assert.All(entities, entity => Assert.Equal(2, entity.Elements(DiagramTestHelpers.Svg + "rect").Count()));
+        Assert.All(
+            entities,
+            entity => Assert.Equal(2, entity.Elements(DiagramTestHelpers.Svg + "rect").Count()));
 
-        string text = string.Join('\n', svg.Descendants(DiagramTestHelpers.Svg + "text").Select(t => t.Value));
+        string text = string.Join(
+            '\n',
+            svg.Descendants(DiagramTestHelpers.Svg + "text").Select(t => t.Value));
         foreach (string expected in new[] { "CUSTOMER", "ORDER", "string id PK", "places" })
         {
             Assert.Contains(expected, text, StringComparison.Ordinal);

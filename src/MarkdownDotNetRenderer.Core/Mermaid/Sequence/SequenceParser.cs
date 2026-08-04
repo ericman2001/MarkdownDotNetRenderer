@@ -104,7 +104,8 @@ public static class SequenceParser
 
             if (!headerSeen)
             {
-                if (!MermaidLines.FirstWord(line).Equals(HeaderKeyword, StringComparison.OrdinalIgnoreCase))
+                if (!MermaidLines.FirstWord(line).Equals(
+                    HeaderKeyword, StringComparison.OrdinalIgnoreCase))
                 {
                     return new SequenceParseResult(
                         false,
@@ -123,7 +124,8 @@ public static class SequenceParser
                 continue;
             }
 
-            if (MermaidLines.FirstWord(line).Equals("autonumber", StringComparison.OrdinalIgnoreCase))
+            if (MermaidLines.FirstWord(line).Equals(
+                "autonumber", StringComparison.OrdinalIgnoreCase))
             {
                 autonumber = true;
                 continue;

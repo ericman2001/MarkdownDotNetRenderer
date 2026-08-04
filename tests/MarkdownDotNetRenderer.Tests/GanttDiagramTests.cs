@@ -190,7 +190,9 @@ public sealed class GanttDiagramTests
         Assert.Equal(2, svg.Descendants(DiagramTestHelpers.Svg + "rect").Count());
         Assert.Single(svg.Descendants(DiagramTestHelpers.Svg + "polygon"));
 
-        string text = string.Join('\n', svg.Descendants(DiagramTestHelpers.Svg + "text").Select(t => t.Value));
+        string text = string.Join(
+            '\n',
+            svg.Descendants(DiagramTestHelpers.Svg + "text").Select(t => t.Value));
         foreach (string expected in new[] { "Delivery", "Build", "Ship", "Design", "2026-01-05" })
         {
             Assert.Contains(expected, text, StringComparison.Ordinal);

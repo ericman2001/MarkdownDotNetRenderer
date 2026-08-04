@@ -139,7 +139,9 @@ public sealed class HtmlDocumentWriter : IDocumentWriter
         html.Append("<meta charset=\"utf-8\">").Append(Newline);
         html.Append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">")
             .Append(Newline);
-        html.Append("<title>").Append(HtmlEscape(DocumentTitle.Resolve(content, options))).Append("</title>")
+        html.Append("<title>")
+            .Append(HtmlEscape(DocumentTitle.Resolve(content, options)))
+            .Append("</title>")
             .Append(Newline);
 
         string? additional = string.IsNullOrWhiteSpace(options.AdditionalCss)

@@ -137,7 +137,9 @@ public sealed class PieDiagramTests
         Assert.Equal(2, slices.Count);
         Assert.All(slices, slice => Assert.NotNull(slice.Element(DiagramTestHelpers.Svg + "path")));
 
-        string text = string.Join('\n', svg.Descendants(DiagramTestHelpers.Svg + "text").Select(t => t.Value));
+        string text = string.Join(
+            '\n',
+            svg.Descendants(DiagramTestHelpers.Svg + "text").Select(t => t.Value));
         Assert.Contains("Coverage", text, StringComparison.Ordinal);
         Assert.Contains("Covered — 75 (75%)", text, StringComparison.Ordinal);
         Assert.Contains("Missed — 25 (25%)", text, StringComparison.Ordinal);
