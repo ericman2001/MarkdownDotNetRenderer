@@ -302,8 +302,8 @@ public sealed class ClassDiagramTests
     {
         XElement svg = RenderSvg(Simple);
 
-        // Glyphs are real geometry rather than <marker> references, which consumers such as the
-        // ODT rasterizer do not all implement.
+        // Glyphs are real geometry rather than <marker> references, so each fragment stays
+        // self-contained with no per-document <defs> to manage.
         Assert.Empty(svg.Descendants(DiagramTestHelpers.Svg + "marker"));
         XElement edge = Assert.Single(
             svg.Descendants(DiagramTestHelpers.Svg + "g"),

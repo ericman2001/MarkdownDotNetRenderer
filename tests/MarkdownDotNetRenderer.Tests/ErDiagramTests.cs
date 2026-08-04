@@ -148,8 +148,8 @@ public sealed class ErDiagramTests
     {
         XElement svg = RenderSvg(Simple);
 
-        // Both glyphs are drawn as geometry at their end of the line: an SVG <marker> at the start
-        // of a line is exactly what the ODT rasterizer dropped.
+        // Both glyphs are drawn as ordinary geometry at their line ends, so the fragment stays
+        // self-contained with no per-document <defs> to manage; this also fixed lost ER bars.
         Assert.Empty(svg.Descendants(DiagramTestHelpers.Svg + "marker"));
         List<XElement> glyphs = svg.Descendants(DiagramTestHelpers.Svg + "g")
             .Single(group => group.Attribute("class")?.Value == "mdnr-edge")
