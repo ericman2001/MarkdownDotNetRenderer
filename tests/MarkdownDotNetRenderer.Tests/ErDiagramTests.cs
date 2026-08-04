@@ -27,8 +27,6 @@ namespace MarkdownDotNetRenderer.Tests;
 /// </summary>
 public sealed class ErDiagramTests
 {
-    private static readonly XNamespace Svg = "http://www.w3.org/2000/svg";
-
     private const string Simple = """
         erDiagram
             CUSTOMER ||--o{ ORDER : places
@@ -45,9 +43,7 @@ public sealed class ErDiagramTests
     {
         DiagramRenderResult result = Render(source);
 
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        Assert.NotNull(result.SvgFragment);
-        return XElement.Parse(result.SvgFragment);
+        return DiagramTestHelpers.RenderSvg(result);
     }
 
     [Fact]
@@ -130,13 +126,17 @@ public sealed class ErDiagramTests
     {
         XElement svg = RenderSvg(Simple);
 
-        List<XElement> entities = svg.Descendants(Svg + "g")
+        List<XElement> entities = svg.Descendants(DiagramTestHelpers.Svg + "g")
             .Where(group => group.Attribute("class")?.Value == "mdnr-entity")
             .ToList();
         Assert.Equal(["CUSTOMER", "ORDER"], entities.Select(e => e.Attribute("data-id")!.Value));
-        Assert.All(entities, entity => Assert.Equal(2, entity.Elements(Svg + "rect").Count()));
+        Assert.All(
+            entities,
+            entity => Assert.Equal(2, entity.Elements(DiagramTestHelpers.Svg + "rect").Count()));
 
-        string text = string.Join('\n', svg.Descendants(Svg + "text").Select(t => t.Value));
+        string text = string.Join(
+            '\n',
+            svg.Descendants(DiagramTestHelpers.Svg + "text").Select(t => t.Value));
         foreach (string expected in new[] { "CUSTOMER", "ORDER", "string id PK", "places" })
         {
             Assert.Contains(expected, text, StringComparison.Ordinal);
@@ -148,12 +148,12 @@ public sealed class ErDiagramTests
     {
         XElement svg = RenderSvg(Simple);
 
-        // Both glyphs are drawn as geometry at their end of the line: an SVG <marker> at the start
-        // of a line is exactly what the ODT rasterizer dropped.
-        Assert.Empty(svg.Descendants(Svg + "marker"));
-        List<XElement> glyphs = svg.Descendants(Svg + "g")
+        // Both glyphs are drawn as ordinary geometry at their line ends, so the fragment stays
+        // self-contained with no per-document <defs> to manage; this also fixed lost ER bars.
+        Assert.Empty(svg.Descendants(DiagramTestHelpers.Svg + "marker"));
+        List<XElement> glyphs = svg.Descendants(DiagramTestHelpers.Svg + "g")
             .Single(group => group.Attribute("class")?.Value == "mdnr-edge")
-            .Elements(Svg + "g")
+            .Elements(DiagramTestHelpers.Svg + "g")
             .Where(group => group.Attribute("class")?.Value == "mdnr-edge-marker")
             .ToList();
 
@@ -182,7 +182,7 @@ public sealed class ErDiagramTests
                 DOCUMENT ||--o{ BLOCK : contains
             """);
 
-        XElement line = svg.Descendants(Svg + "line").Single();
+        XElement line = svg.Descendants(DiagramTestHelpers.Svg + "line").Single();
         double glyph = GraphMarkers.EndpointInset(
             GraphMarker.ErExactlyOne,
             ErTheme.Default.Edge.MarkerSize,
@@ -193,9 +193,9 @@ public sealed class ErDiagramTests
         double glyphTop = Number(line, "y1") - glyph;
         double glyphBottom = Number(line, "y2") + glyph;
         XElement label = svg
-            .Descendants(Svg + "g")
+            .Descendants(DiagramTestHelpers.Svg + "g")
             .Single(group => group.Attribute("class")?.Value == "mdnr-edge-label")
-            .Element(Svg + "rect")!;
+            .Element(DiagramTestHelpers.Svg + "rect")!;
         double top = Number(label, "y");
         double bottom = top + Number(label, "height");
 
@@ -212,12 +212,12 @@ public sealed class ErDiagramTests
                 DOCUMENT ||--o{ BLOCK : contains
             """);
 
-        XElement line = svg.Descendants(Svg + "line").Single();
+        XElement line = svg.Descendants(DiagramTestHelpers.Svg + "line").Single();
         double lineX = Number(line, "x1");
         XElement label = svg
-            .Descendants(Svg + "g")
+            .Descendants(DiagramTestHelpers.Svg + "g")
             .Single(group => group.Attribute("class")?.Value == "mdnr-edge-label")
-            .Element(Svg + "rect")!;
+            .Element(DiagramTestHelpers.Svg + "rect")!;
         double left = Number(label, "x");
         double right = left + Number(label, "width");
 
@@ -226,11 +226,6 @@ public sealed class ErDiagramTests
         Assert.True(
             right <= lineX || left >= lineX, $"label {left}..{right} covers the line at {lineX}");
     }
-
-    private static double Number(XElement element, string name) =>
-        double.Parse(
-            element.Attribute(name)!.Value,
-            System.Globalization.CultureInfo.InvariantCulture);
 
     [Fact]
     public void Repeated_Renders_Are_Byte_Identical()

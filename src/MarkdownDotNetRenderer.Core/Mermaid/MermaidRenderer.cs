@@ -160,6 +160,11 @@ public sealed class MermaidRenderer
         string normalized = Normalize(mermaidSource);
         bool directiveIgnored = false;
         bool inDirective = false;
+        void ReportDirectiveIgnored() =>
+            diagnostics.Add(new RenderDiagnostic(
+                DiagnosticSeverity.Info,
+                RenderDiagnostic.IgnoredDiagramFeature,
+                MermaidLines.DirectiveIgnored));
 
         foreach (string rawLine in normalized.Split('\n'))
         {
@@ -194,11 +199,7 @@ public sealed class MermaidRenderer
 
             if (directiveIgnored)
             {
-                diagnostics.Add(new RenderDiagnostic(
-                    DiagnosticSeverity.Info,
-                    RenderDiagnostic.IgnoredDiagramFeature,
-                    "A mermaid directive (%%{ … }%%) was ignored; the diagram is rendered with " +
-                    "the built-in theme."));
+                ReportDirectiveIgnored();
             }
 
             int end = line.Length;
@@ -217,11 +218,7 @@ public sealed class MermaidRenderer
 
         if (directiveIgnored)
         {
-            diagnostics.Add(new RenderDiagnostic(
-                DiagnosticSeverity.Info,
-                RenderDiagnostic.IgnoredDiagramFeature,
-                "A mermaid directive (%%{ … }%%) was ignored; the diagram is rendered with " +
-                "the built-in theme."));
+            ReportDirectiveIgnored();
         }
 
         return null;

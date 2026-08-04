@@ -47,9 +47,6 @@ public sealed class GanttRenderer : IDiagramRenderer
         _theme = theme;
     }
 
-    /// <summary>Soft wrap width, in characters, for the chart title.</summary>
-    public const int TitleWrapChars = 48;
-
     /// <inheritdoc />
     public IReadOnlyCollection<string> DiagramTypes { get; } = [GanttParser.HeaderKeyword];
 
@@ -82,7 +79,7 @@ public sealed class GanttRenderer : IDiagramRenderer
         GanttModel model = parsed.Model;
         double fontSize = DiagramDefaults.ResolveFontSize(options);
         GanttChartLayout layout = GanttLayoutEngine.Compute(
-            model, fontSize, _metrics, TitleWrapChars, fontSize * _theme.AxisFontScale);
+            model, fontSize, _metrics, _metrics.TitleWrapChars, fontSize * _theme.AxisFontScale);
 
         string altText = string.Create(
             CultureInfo.InvariantCulture,

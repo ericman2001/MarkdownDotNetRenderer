@@ -22,7 +22,8 @@ You write your design docs in Markdown with Mermaid diagrams. Your reviewer has 
 office suite. Existing options for bridging that gap all drag JavaScript into the build: a Node
 sidecar running `mermaid-cli`, a headless Chromium, a remote rendering service, or an embedded
 JS engine. This project renders Mermaid **in-process, in C#**, so a single small executable —
-with two NuGet dependencies and no browser, no Node, and no network — produces the artifact.
+with one runtime NuGet dependency today (within a two-package budget; the second arrives with
+phase 5) and no browser, no Node, and no network — produces the artifact.
 
 ## The no-JS constraint
 
@@ -160,12 +161,13 @@ acceptance criteria — so it can be handed off and executed independently.
 
 ## Dependencies
 
-Two runtime packages, total. Neither pulls a native or JavaScript dependency.
+One runtime package today, within a budget of two. The second arrives with phase 5; neither may
+pull a native or JavaScript dependency.
 
 | Package | License | Used for |
 | --- | --- | --- |
 | [Markdig](https://github.com/xoofx/markdig) | BSD-2-Clause | GFM Markdown parsing |
-| [DocumentFormat.OpenXml](https://github.com/dotnet/Open-XML-SDK) | MIT | DOCX writing (isolated behind `IDocumentWriter`) |
+| [DocumentFormat.OpenXml](https://github.com/dotnet/Open-XML-SDK) | MIT | Planned phase 5 DOCX writing; not referenced today |
 
 See [06 — Dependencies, AOT & cross-platform](docs/06-aot-and-dependencies.md) for the policy
 that keeps it that way.

@@ -41,7 +41,7 @@ public static class DiagramIds
     /// <summary>A short deterministic FNV-1a fingerprint of a diagram source.</summary>
     /// <param name="source">The source to fingerprint.</param>
     /// <returns>Eight lowercase hex digits.</returns>
-    public static string Fingerprint(string source)
+    internal static string Fingerprint(string source)
     {
         ArgumentNullException.ThrowIfNull(source);
 

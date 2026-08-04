@@ -28,8 +28,6 @@ namespace MarkdownDotNetRenderer.Tests;
 /// </summary>
 public sealed class GanttDiagramTests
 {
-    private static readonly XNamespace Svg = "http://www.w3.org/2000/svg";
-
     private const string Simple = """
         gantt
             title Delivery
@@ -48,9 +46,7 @@ public sealed class GanttDiagramTests
     {
         DiagramRenderResult result = Render(source);
 
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        Assert.NotNull(result.SvgFragment);
-        return XElement.Parse(result.SvgFragment);
+        return DiagramTestHelpers.RenderSvg(result);
     }
 
     [Fact]
@@ -182,7 +178,7 @@ public sealed class GanttDiagramTests
     {
         XElement svg = RenderSvg(Simple);
 
-        List<XElement> tasks = svg.Descendants(Svg + "g")
+        List<XElement> tasks = svg.Descendants(DiagramTestHelpers.Svg + "g")
             .Where(group => group.Attribute("class")?.Value.StartsWith(
                 "mdnr-gantt-task ", StringComparison.Ordinal) == true)
             .ToList();
@@ -191,10 +187,12 @@ public sealed class GanttDiagramTests
             tasks.Select(task => task.Attribute("data-task")!.Value));
 
         // A bar per dated task, a diamond for the milestone.
-        Assert.Equal(2, svg.Descendants(Svg + "rect").Count());
-        Assert.Single(svg.Descendants(Svg + "polygon"));
+        Assert.Equal(2, svg.Descendants(DiagramTestHelpers.Svg + "rect").Count());
+        Assert.Single(svg.Descendants(DiagramTestHelpers.Svg + "polygon"));
 
-        string text = string.Join('\n', svg.Descendants(Svg + "text").Select(t => t.Value));
+        string text = string.Join(
+            '\n',
+            svg.Descendants(DiagramTestHelpers.Svg + "text").Select(t => t.Value));
         foreach (string expected in new[] { "Delivery", "Build", "Ship", "Design", "2026-01-05" })
         {
             Assert.Contains(expected, text, StringComparison.Ordinal);
@@ -206,7 +204,7 @@ public sealed class GanttDiagramTests
     {
         XElement svg = RenderSvg(Simple);
 
-        List<XElement> bars = svg.Descendants(Svg + "rect").ToList();
+        List<XElement> bars = svg.Descendants(DiagramTestHelpers.Svg + "rect").ToList();
         Assert.Equal(GanttTheme.Default.DoneFill, bars[0].Attribute("fill")!.Value);
         Assert.Equal(GanttTheme.Default.ActiveFill, bars[1].Attribute("fill")!.Value);
         Assert.Equal(GanttTheme.Default.CriticalStroke, bars[1].Attribute("stroke")!.Value);
@@ -219,7 +217,7 @@ public sealed class GanttDiagramTests
 
         // A hairline outline disappeared once the diagram was rasterized into a document, so the
         // crit outline is drawn wider than a plain bar's.
-        List<XElement> bars = svg.Descendants(Svg + "rect").ToList();
+        List<XElement> bars = svg.Descendants(DiagramTestHelpers.Svg + "rect").ToList();
         double plain = double.Parse(
             bars[0].Attribute("stroke-width")!.Value, CultureInfo.InvariantCulture);
         double critical = double.Parse(

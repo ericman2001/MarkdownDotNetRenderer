@@ -30,6 +30,7 @@ namespace MarkdownDotNetRenderer.Mermaid.Gantt;
 /// <param name="BarHeight">Height of a task bar.</param>
 /// <param name="MilestoneSize">Diagonal of a milestone diamond.</param>
 /// <param name="MinTickSpacing">Smallest gap between two axis ticks, which fixes the tick step.</param>
+/// <param name="TitleWrapChars">Soft wrap width, in characters, for the chart title.</param>
 public sealed record GanttMetrics(
     double Margin = 16,
     double ChartWidth = 560,
@@ -40,7 +41,8 @@ public sealed record GanttMetrics(
     double SectionHeaderHeight = 22,
     double BarHeight = 14,
     double MilestoneSize = 14,
-    double MinTickSpacing = 76)
+    double MinTickSpacing = 76,
+    int TitleWrapChars = 48)
 {
     /// <summary>The defaults documented in docs/phases/phase-4-additional-diagrams.md.</summary>
     public static GanttMetrics Default { get; } = new();

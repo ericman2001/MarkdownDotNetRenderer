@@ -8,8 +8,11 @@ dependency.
 | Package | Used by | License | LGPLv3 compatible as a dependency? |
 | --- | --- | --- | --- |
 | [Markdig](https://www.nuget.org/packages/Markdig) | Core (all phases) | BSD-2-Clause | Yes — permissive, no reciprocal obligations |
-| [DocumentFormat.OpenXml](https://www.nuget.org/packages/DocumentFormat.OpenXml) | Core, DOCX path only ([phase 5](phases/phase-5-docx.md)) | MIT | Yes — permissive |
+| [DocumentFormat.OpenXml](https://www.nuget.org/packages/DocumentFormat.OpenXml) | Planned phase 5 only; not referenced today | MIT | Yes — permissive |
 | xUnit (+ `xunit.runner.visualstudio`, `Microsoft.NET.Test.Sdk`) | Tests only | Apache-2.0 / MIT | Yes; test-only, never shipped |
+
+Core currently uses one runtime package, `Markdig`. The second package in the budget arrives with
+[phase 5](phases/phase-5-docx.md) for DOCX support.
 
 Also allowed, because they ship with the runtime: `System.IO.Compression`,
 `System.Xml.XmlWriter`, `System.Text.Json` — this is what the ODT writer
@@ -71,11 +74,12 @@ surfacing as a runtime crash in a published binary.
    `InvariantGlobalization` safe for the CLI.
 4. **No `System.Text.Json` source-generator-less serialization** — currently no JSON at all.
 
-### Known AOT risk: DocumentFormat.OpenXml
+### Known AOT risk when phase 5 arrives: DocumentFormat.OpenXml
 
-DocumentFormat.OpenXml is **not** annotated as trim/AOT-safe. It uses reflection internally
-for schema and element metadata, and referencing it from a project marked `IsAotCompatible`
-raises `IL2xxx`/`IL3xxx` warnings that `TreatWarningsAsErrors` would turn into build failures.
+The planned `DocumentFormat.OpenXml` dependency is **not** annotated as trim/AOT-safe. It uses
+reflection internally for schema and element metadata, and referencing it from a project marked
+`IsAotCompatible` raises `IL2xxx`/`IL3xxx` warnings that `TreatWarningsAsErrors` would turn into
+build failures.
 
 **Mitigation (the reason `IDocumentWriter` exists):**
 

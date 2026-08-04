@@ -30,9 +30,6 @@ public sealed class OdtDocumentWriterTests
     private const string SvgMediaType = "image/svg+xml";
     private const string XmlMediaType = "text/xml";
 
-    private static readonly XNamespace Office =
-        "urn:oasis:names:tc:opendocument:xmlns:office:1.0";
-
     private static readonly XNamespace Text =
         "urn:oasis:names:tc:opendocument:xmlns:text:1.0";
 
@@ -42,16 +39,11 @@ public sealed class OdtDocumentWriterTests
     private static readonly XNamespace Table =
         "urn:oasis:names:tc:opendocument:xmlns:table:1.0";
 
-    private static readonly XNamespace Draw =
-        "urn:oasis:names:tc:opendocument:xmlns:drawing:1.0";
-
     private static readonly XNamespace Fo =
         "urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0";
 
-    private static readonly XNamespace Svg =
+    private static readonly XNamespace OdfSvg =
         "urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0";
-
-    private static readonly XNamespace Xlink = "http://www.w3.org/1999/xlink";
 
     private static readonly XNamespace Manifest =
         "urn:oasis:names:tc:opendocument:xmlns:manifest:1.0";
@@ -371,12 +363,14 @@ public sealed class OdtDocumentWriterTests
             XDocument.Parse(svg);
 
             // Physical units, not pixels: ODF sizes are inches here (px / 96).
-            Assert.EndsWith("in", frame.Attribute(Svg + "width")!.Value, StringComparison.Ordinal);
-            Assert.EndsWith("in", frame.Attribute(Svg + "height")!.Value, StringComparison.Ordinal);
+            Assert.EndsWith(
+                "in", frame.Attribute(OdfSvg + "width")!.Value, StringComparison.Ordinal);
+            Assert.EndsWith(
+                "in", frame.Attribute(OdfSvg + "height")!.Value, StringComparison.Ordinal);
 
             // Alt text travels into the accessibility elements.
-            Assert.NotEmpty(frame.Element(Svg + "title")!.Value);
-            Assert.NotEmpty(frame.Element(Svg + "desc")!.Value);
+            Assert.NotEmpty(frame.Element(OdfSvg + "title")!.Value);
+            Assert.NotEmpty(frame.Element(OdfSvg + "desc")!.Value);
         }
     }
 
@@ -394,7 +388,8 @@ public sealed class OdtDocumentWriterTests
             svg.Root!.Attribute("width")!.Value,
             System.Globalization.CultureInfo.InvariantCulture);
         double inches = double.Parse(
-            frame.Attribute(Svg + "width")!.Value.Replace("in", string.Empty, StringComparison.Ordinal),
+            frame.Attribute(OdfSvg + "width")!.Value.Replace(
+                "in", string.Empty, StringComparison.Ordinal),
             System.Globalization.CultureInfo.InvariantCulture);
 
         Assert.Equal(pixels / 96, inches, precision: 3);

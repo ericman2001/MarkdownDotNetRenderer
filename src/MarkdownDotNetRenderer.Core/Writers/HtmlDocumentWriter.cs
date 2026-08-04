@@ -33,7 +33,6 @@ namespace MarkdownDotNetRenderer.Writers;
 public sealed class HtmlDocumentWriter : IDocumentWriter
 {
     private const string Newline = "\n";
-    private const string DefaultTitle = "Document";
     private const string DefaultCssResourceName = "MarkdownDotNetRenderer.Writers.default.css";
     private const string FontFamilyToken = "__FONT_FAMILY__";
 
@@ -140,7 +139,9 @@ public sealed class HtmlDocumentWriter : IDocumentWriter
         html.Append("<meta charset=\"utf-8\">").Append(Newline);
         html.Append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">")
             .Append(Newline);
-        html.Append("<title>").Append(HtmlEscape(ResolveTitle(content, options))).Append("</title>")
+        html.Append("<title>")
+            .Append(HtmlEscape(DocumentTitle.Resolve(content, options)))
+            .Append("</title>")
             .Append(Newline);
 
         string? additional = string.IsNullOrWhiteSpace(options.AdditionalCss)
@@ -216,65 +217,6 @@ public sealed class HtmlDocumentWriter : IDocumentWriter
         }
 
         text.Flush();
-        return text.ToString();
-    }
-
-    private static string ResolveTitle(DocumentContent content, RenderOptions options)
-    {
-        if (!string.IsNullOrWhiteSpace(options.DocumentTitle))
-        {
-            return options.DocumentTitle;
-        }
-
-        foreach (DocumentBlock block in content.Blocks)
-        {
-            if (block is not ProseBlock prose)
-            {
-                continue;
-            }
-
-            foreach (Block node in prose.Nodes)
-            {
-                if (node is HeadingBlock { Level: 1 } heading)
-                {
-                    string text = ExtractText(heading.Inline);
-                    if (!string.IsNullOrWhiteSpace(text))
-                    {
-                        return text;
-                    }
-                }
-            }
-        }
-
-        return DefaultTitle;
-    }
-
-    private static string ExtractText(ContainerInline? container)
-    {
-        if (container is null)
-        {
-            return string.Empty;
-        }
-
-        var text = new StringBuilder();
-        foreach (Inline inline in container)
-        {
-            switch (inline)
-            {
-                case LiteralInline literal:
-                    text.Append(literal.Content.AsSpan());
-                    break;
-                case CodeInline code:
-                    text.Append(code.Content);
-                    break;
-                case ContainerInline nested:
-                    text.Append(ExtractText(nested));
-                    break;
-                default:
-                    break;
-            }
-        }
-
         return text.ToString();
     }
 

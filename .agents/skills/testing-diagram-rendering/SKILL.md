@@ -52,8 +52,8 @@ EOF
 Compare each white `fill="#ffffff" stroke="none"` rect's span against the line/marker span
 (marker length = `markerWidth × stroke-width`, e.g. 9 × 1.5 = 13.5 user units). If they overlap,
 that glyph is occluded. Confirm in the browser by nudging the line's `x1/x2` in the console — the
-glyph pops into view. Note the ODT/PDF render may still show the glyph, so a browser check is
-required; the ODT path also drops SVG marker `||` bars and `crit` styling.
+glyph pops into view. A browser check is required because the ODT/PDF render may disagree; current
+LibreOffice checks preserve the phase-4 `||` bars and `crit` styling.
 
 ## Coordinates inside `mdnr-*` groups are pre-shift
 

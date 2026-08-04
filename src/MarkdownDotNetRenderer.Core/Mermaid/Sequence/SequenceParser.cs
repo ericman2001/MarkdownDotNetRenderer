@@ -82,7 +82,7 @@ public static class SequenceParser
 
         foreach (string rawLine in MermaidRenderer.Normalize(mermaidSource).Split('\n'))
         {
-            string line = StripComment(rawLine).Trim();
+            string line = MermaidLines.StripComment(rawLine).Trim();
 
             if (inDirective)
             {
@@ -97,16 +97,15 @@ public static class SequenceParser
 
             if (line.StartsWith("%%{", StringComparison.Ordinal))
             {
-                Report(diagnostics, reported, "directive",
-                    "A mermaid directive (%%{ … }%%) was ignored; the diagram is rendered with " +
-                    "the built-in theme.");
+                Report(diagnostics, reported, "directive", MermaidLines.DirectiveIgnored);
                 inDirective = !line.Contains("}%%", StringComparison.Ordinal);
                 continue;
             }
 
             if (!headerSeen)
             {
-                if (!FirstWord(line).Equals(HeaderKeyword, StringComparison.OrdinalIgnoreCase))
+                if (!MermaidLines.FirstWord(line).Equals(
+                    HeaderKeyword, StringComparison.OrdinalIgnoreCase))
                 {
                     return new SequenceParseResult(
                         false,
@@ -125,7 +124,8 @@ public static class SequenceParser
                 continue;
             }
 
-            if (FirstWord(line).Equals("autonumber", StringComparison.OrdinalIgnoreCase))
+            if (MermaidLines.FirstWord(line).Equals(
+                "autonumber", StringComparison.OrdinalIgnoreCase))
             {
                 autonumber = true;
                 continue;
@@ -153,7 +153,7 @@ public static class SequenceParser
                 continue;
             }
 
-            string keyword = FirstWord(line);
+            string keyword = MermaidLines.FirstWord(line);
             bool deferred = false;
             foreach (string candidate in DeferredKeywords)
             {
@@ -362,23 +362,6 @@ public static class SequenceParser
 
     private static string Truncate(string value) =>
         value.Length <= MaxLabelLength ? value : value[..MaxLabelLength];
-
-    private static string FirstWord(string line)
-    {
-        int index = line.IndexOfAny([' ', '\t', ';', ':']);
-        return index < 0 ? line : line[..index];
-    }
-
-    private static string StripComment(string line)
-    {
-        int index = line.IndexOf("%%", StringComparison.Ordinal);
-        if (index < 0 || line.TrimStart().StartsWith("%%{", StringComparison.Ordinal))
-        {
-            return line;
-        }
-
-        return line[..index];
-    }
 
     private static void Report(
         List<RenderDiagnostic> diagnostics,

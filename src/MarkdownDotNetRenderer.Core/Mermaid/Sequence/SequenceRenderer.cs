@@ -15,6 +15,7 @@
 // <https://www.gnu.org/licenses/>.
 
 using System.Globalization;
+using MarkdownDotNetRenderer.Mermaid.Graph;
 using MarkdownDotNetRenderer.Svg;
 
 namespace MarkdownDotNetRenderer.Mermaid.Sequence;
@@ -77,7 +78,7 @@ public sealed class SequenceRenderer : IDiagramRenderer
         }
 
         SequenceModel model = parsed.Model;
-        double fontSize = options.DiagramFontSize <= 0 ? 12 : options.DiagramFontSize;
+        double fontSize = DiagramDefaults.ResolveFontSize(options);
 
         SequenceLayoutResult layout = SequenceLayoutEngine.Compute(
             model, fontSize, _metrics, _theme.LabelWrapChars);
@@ -115,24 +116,7 @@ public sealed class SequenceRenderer : IDiagramRenderer
 
         double width = layout.Width;
         double height = layout.Height;
-        double renderWidth = width;
-        double renderHeight = height;
-        if (options.MaxDiagramWidth > 0 && width > options.MaxDiagramWidth)
-        {
-            // Keep the viewBox intrinsic and clamp the presented size, so the consumer scales the
-            // diagram down instead of clipping it.
-            renderWidth = options.MaxDiagramWidth;
-            renderHeight = height * (options.MaxDiagramWidth / width);
-        }
-
-        svg.StartElement("svg")
-            .Attribute("xmlns", SvgBuilder.SvgNamespace)
-            .Attribute("width", renderWidth)
-            .Attribute("height", renderHeight)
-            .Attribute("viewBox", $"0 0 {SvgBuilder.Number(width)} {SvgBuilder.Number(height)}")
-            .Attribute("role", "img")
-            .Attribute("aria-label", altText)
-            .Attribute("class", "mdnr-sequence");
+        DiagramSvg.StartRoot(svg, width, height, options, altText, "mdnr-sequence");
 
         EmitDefs(svg, idPrefix);
 
@@ -442,26 +426,14 @@ public sealed class SequenceRenderer : IDiagramRenderer
         RenderOptions options,
         double fontSize)
     {
-        double lineHeight = TextMetrics.LineHeight(fontSize);
-
-        svg.StartElement("text")
-            .Attribute("x", anchorX)
-            .Attribute("y", top)
-            .Attribute("text-anchor", anchor)
-            .Attribute("dominant-baseline", "middle")
-            .Attribute("font-family", options.FontFamily)
-            .Attribute("font-size", fontSize)
-            .Attribute("fill", _theme.TextFill);
-
-        for (int i = 0; i < lines.Count; i++)
-        {
-            svg.StartElement("tspan")
-                .Attribute("x", anchorX)
-                .Attribute("dy", i == 0 ? lineHeight / 2 : lineHeight)
-                .Text(lines[i])
-                .EndElement();
-        }
-
-        svg.EndElement();
+        SvgText.EmitFromTop(
+            svg,
+            lines,
+            anchorX,
+            top,
+            anchor,
+            options,
+            fontSize,
+            _theme.TextFill);
     }
 }

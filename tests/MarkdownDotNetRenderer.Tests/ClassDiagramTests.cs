@@ -28,8 +28,6 @@ namespace MarkdownDotNetRenderer.Tests;
 /// </summary>
 public sealed class ClassDiagramTests
 {
-    private static readonly XNamespace Svg = "http://www.w3.org/2000/svg";
-
     /// <summary>How finely a relation line is sampled when checking a label does not cover it.</summary>
     private const int LineSamples = 200;
 
@@ -54,9 +52,7 @@ public sealed class ClassDiagramTests
     {
         DiagramRenderResult result = Render(source);
 
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        Assert.NotNull(result.SvgFragment);
-        return XElement.Parse(result.SvgFragment);
+        return DiagramTestHelpers.RenderSvg(result);
     }
 
     [Fact]
@@ -181,7 +177,7 @@ public sealed class ClassDiagramTests
     {
         XElement svg = RenderSvg(Simple);
 
-        List<XElement> boxes = svg.Descendants(Svg + "g")
+        List<XElement> boxes = svg.Descendants(DiagramTestHelpers.Svg + "g")
             .Where(group => group.Attribute("class")?.Value == "mdnr-class-node")
             .ToList();
         Assert.Equal(["Animal", "Dog"], boxes.Select(box => box.Attribute("data-id")!.Value));
@@ -189,11 +185,13 @@ public sealed class ClassDiagramTests
         foreach (XElement box in boxes)
         {
             // An outer box, a name compartment, and one divider above the operations.
-            Assert.Equal(2, box.Elements(Svg + "rect").Count());
-            Assert.Single(box.Elements(Svg + "line"));
+            Assert.Equal(2, box.Elements(DiagramTestHelpers.Svg + "rect").Count());
+            Assert.Single(box.Elements(DiagramTestHelpers.Svg + "line"));
         }
 
-        string text = string.Join('\n', svg.Descendants(Svg + "text").Select(t => t.Value));
+        string text = string.Join(
+            '\n',
+            svg.Descendants(DiagramTestHelpers.Svg + "text").Select(t => t.Value));
         foreach (string expected in
             new[] { "<<interface>>", "Animal", "+string name", "+speak()", "+fetch()" })
         {
@@ -216,13 +214,13 @@ public sealed class ClassDiagramTests
         // relation is the same box rather than a second, empty one.
         Assert.Equal(
             ["Base", "Repo"],
-            svg.Descendants(Svg + "g")
+            svg.Descendants(DiagramTestHelpers.Svg + "g")
                 .Select(group => group.Attribute("data-id")?.Value)
                 .Where(id => id is not null)
                 .Order(StringComparer.Ordinal));
         Assert.Contains(
             "Repo<T>",
-            svg.Descendants(Svg + "text").Select(text => text.Value));
+            svg.Descendants(DiagramTestHelpers.Svg + "text").Select(text => text.Value));
     }
 
     [Fact]
@@ -243,13 +241,13 @@ public sealed class ClassDiagramTests
 
         // A label clears every box, not just the two its own edge joins, and every other label:
         // an opaque backing rect over either erases what it covers.
-        List<XElement> boxes = svg.Descendants(Svg + "g")
+        List<XElement> boxes = svg.Descendants(DiagramTestHelpers.Svg + "g")
             .Where(group => group.Attribute("data-id") is not null)
-            .Elements(Svg + "rect")
+            .Elements(DiagramTestHelpers.Svg + "rect")
             .ToList();
-        List<XElement> labels = svg.Descendants(Svg + "g")
+        List<XElement> labels = svg.Descendants(DiagramTestHelpers.Svg + "g")
             .Where(group => group.Attribute("class")?.Value == "mdnr-edge-label")
-            .Elements(Svg + "rect")
+            .Elements(DiagramTestHelpers.Svg + "rect")
             .ToList();
 
         Assert.All(labels, label => Assert.All(boxes, box => Assert.False(
@@ -268,9 +266,9 @@ public sealed class ClassDiagramTests
         // Nor over a relation line, whose stroke an opaque rect would break into dashes, which in a
         // class diagram would read as a dependency.
         Assert.All(
-            svg.Descendants(Svg + "g")
+            svg.Descendants(DiagramTestHelpers.Svg + "g")
                 .Where(group => group.Attribute("class")?.Value == "mdnr-edge")
-                .Elements(Svg + "line"),
+                .Elements(DiagramTestHelpers.Svg + "line"),
             line => Assert.All(labels, label => Assert.False(
                 Crosses(label, line),
                 $"label {label} covers line {line}")));
@@ -304,18 +302,18 @@ public sealed class ClassDiagramTests
     {
         XElement svg = RenderSvg(Simple);
 
-        // Glyphs are real geometry rather than <marker> references, which consumers such as the
-        // ODT rasterizer do not all implement.
-        Assert.Empty(svg.Descendants(Svg + "marker"));
+        // Glyphs are real geometry rather than <marker> references, so each fragment stays
+        // self-contained with no per-document <defs> to manage.
+        Assert.Empty(svg.Descendants(DiagramTestHelpers.Svg + "marker"));
         XElement edge = Assert.Single(
-            svg.Descendants(Svg + "g"),
+            svg.Descendants(DiagramTestHelpers.Svg + "g"),
             group => group.Attribute("class")?.Value == "mdnr-edge");
 
         XElement glyph = Assert.Single(
-            edge.Elements(Svg + "g"),
+            edge.Elements(DiagramTestHelpers.Svg + "g"),
             group => group.Attribute("class")?.Value == "mdnr-edge-marker");
         Assert.Equal("triangle", glyph.Attribute("data-marker")!.Value);
-        Assert.NotEmpty(glyph.Elements(Svg + "path"));
+        Assert.NotEmpty(glyph.Elements(DiagramTestHelpers.Svg + "path"));
     }
 
     [Fact]
@@ -360,14 +358,14 @@ public sealed class ClassDiagramTests
             """);
 
         XElement line = Assert.Single(
-            svg.Descendants(Svg + "g")
+            svg.Descendants(DiagramTestHelpers.Svg + "g")
                 .Single(group => group.Attribute("class")?.Value == "mdnr-edge")
-                .Elements(Svg + "line"));
+                .Elements(DiagramTestHelpers.Svg + "line"));
         double lineTop = Number(line, "y1");
         double boxBottom = svg
-            .Descendants(Svg + "g")
+            .Descendants(DiagramTestHelpers.Svg + "g")
             .Where(group => group.Attribute("data-id")?.Value == "A")
-            .Elements(Svg + "rect")
+            .Elements(DiagramTestHelpers.Svg + "rect")
             .Max(rect => Number(rect, "y") + Number(rect, "height"));
 
         // The glyph is drawn behind its endpoint, so the endpoint must be a whole glyph clear of
@@ -388,9 +386,9 @@ public sealed class ClassDiagramTests
             """);
 
         XElement line = Assert.Single(
-            svg.Descendants(Svg + "g")
+            svg.Descendants(DiagramTestHelpers.Svg + "g")
                 .Single(group => group.Attribute("class")?.Value == "mdnr-edge")
-                .Elements(Svg + "line"));
+                .Elements(DiagramTestHelpers.Svg + "line"));
         double lineX = Number(line, "x1");
         double halfMarker =
             ClassTheme.Default.Edge.MarkerSize * ClassTheme.Default.Edge.StrokeWidth / 2;
@@ -398,9 +396,9 @@ public sealed class ClassDiagramTests
         // A label centred on the line would paint its opaque rect over the connector and over the
         // glyph the endpoint carries, both of which are drawn before it.
         Assert.All(
-            svg.Descendants(Svg + "g")
+            svg.Descendants(DiagramTestHelpers.Svg + "g")
                 .Where(group => group.Attribute("class")?.Value == "mdnr-edge-label")
-                .Elements(Svg + "rect"),
+                .Elements(DiagramTestHelpers.Svg + "rect"),
             rect =>
             {
                 double left = Number(rect, "x");
@@ -436,9 +434,9 @@ public sealed class ClassDiagramTests
             """);
 
         List<(double Left, double Right, double Top, double Bottom)> boxes = svg
-            .Descendants(Svg + "g")
+            .Descendants(DiagramTestHelpers.Svg + "g")
             .Where(group => group.Attribute("data-id") is not null)
-            .Elements(Svg + "rect")
+            .Elements(DiagramTestHelpers.Svg + "rect")
             .Select(rect => (
                 Number(rect, "x"),
                 Number(rect, "x") + Number(rect, "width"),
@@ -479,9 +477,9 @@ public sealed class ClassDiagramTests
     private static List<(double Left, double Right, double Top, double Bottom)> LabelRects(
         XElement svg) =>
         svg
-            .Descendants(Svg + "g")
+            .Descendants(DiagramTestHelpers.Svg + "g")
             .Where(group => group.Attribute("class")?.Value == "mdnr-edge-label")
-            .Elements(Svg + "rect")
+            .Elements(DiagramTestHelpers.Svg + "rect")
             .Select(rect => (
                 Number(rect, "x"),
                 Number(rect, "x") + Number(rect, "width"),
@@ -494,11 +492,6 @@ public sealed class ClassDiagramTests
         Number(second, "x") < Number(first, "x") + Number(first, "width") &&
         Number(first, "y") < Number(second, "y") + Number(second, "height") &&
         Number(second, "y") < Number(first, "y") + Number(first, "height");
-
-    private static double Number(XElement element, string name) =>
-        double.Parse(
-            element.Attribute(name)!.Value,
-            System.Globalization.CultureInfo.InvariantCulture);
 
     [Fact]
     public void Repeated_Renders_Are_Byte_Identical()
